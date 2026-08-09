@@ -1,7 +1,6 @@
-import { app, auth, configured, db } from "./firebase.js";
+import { auth, configured, db } from "./firebase.js";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { addDoc, collection, getCountFromServer, getDocs, orderBy, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js";
+import { addDoc, collection, doc, getCountFromServer, getDocs, orderBy, query, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const error = document.getElementById("login-error");
 const ACCOUNT_DOMAIN = "@qfm.kh.edu.tw";
@@ -27,7 +26,6 @@ async function renderActivity() {
 }
 if (!configured) error.textContent = "尚未設定 Firebase，請先完成 firebase-config.js。";
 else {
-  const resetTeacherPin = httpsCallable(getFunctions(app), "resetTeacherPin");
   onAuthStateChanged(auth, async (user) => {
     document.getElementById("login-panel").hidden = Boolean(user);
     document.getElementById("dashboard").hidden = !user;
@@ -43,5 +41,5 @@ else {
   document.getElementById("announcement-form").onsubmit = (e) => { e.preventDefault(); const d = new FormData(e.target); publish("announcements", { title:d.get("title"), body:d.get("body"), requiresSignature:d.has("requiresSignature") }, e.target); };
   document.getElementById("poll-form").onsubmit = (e) => { e.preventDefault(); const d = new FormData(e.target); const options = lines(d.get("options")); if (options.length < 2) return alert("請至少填寫兩個選項。"); publish("polls", { question:d.get("question"), options, counts:Object.fromEntries(options.map((_, i) => [i, 0])) }, e.target); };
   document.getElementById("form-form").onsubmit = (e) => { e.preventDefault(); const d = new FormData(e.target); const fields = lines(d.get("fields")); if (!fields.length) return alert("請至少填寫一個欄位。"); publish("forms", { title:d.get("title"), description:d.get("description"), fields }, e.target); };
-  document.getElementById("reset-teacher-form").onsubmit = async (event) => { event.preventDefault(); const code = document.getElementById("reset-teacher-code").value; const message = document.getElementById("reset-message"); if (!confirm(`確定重置導師 ${code} 的驗證碼？`)) return; message.textContent = "重置中…"; try { await resetTeacherPin({ code }); message.textContent = `${code} 已重置為未設定。`; } catch (e) { message.textContent = "重置失敗。請確認此帳號具有管理者權限，且 Firebase Functions 已部署。"; } };
+  document.getElementById("reset-teacher-form").onsubmit = async (event) => { event.preventDefault(); const code = document.getElementById("reset-teacher-code").value; const message = document.getElementById("reset-message"); if (!confirm(`確定重置導師 ${code} 的驗證碼？`)) return; message.textContent = "重置中…"; try { await setDoc(doc(db, "teacherCredentials", code), { pinHash: null, resetAt: serverTimestamp() }, { merge: true }); message.textContent = `${code} 已重置為未設定。`; } catch (e) { message.textContent = "重置失敗，請確認管理者帳號已登入。"; } };
 }

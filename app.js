@@ -1,7 +1,7 @@
 import { auth, configured, db } from "./firebase.js";
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js"));
 import { onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { collection, doc, increment, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const list = (id) => document.getElementById(id);
 const empty = () => document.getElementById("empty-template").content.cloneNode(true);
@@ -39,8 +39,7 @@ function renderPolls(items, uid) {
     onSnapshot(voteRef, (snap) => { if (snap.exists()) { card.querySelectorAll("button").forEach((b) => b.disabled = true); card.querySelector("small").textContent = "已完成投票"; } });
     card.querySelectorAll("[data-option]").forEach((button) => button.onclick = async () => {
       const option = Number(button.dataset.option); button.closest("article").querySelectorAll("button").forEach((b) => b.disabled = true);
-      // 票數由 Cloud Function 在伺服器端加總，避免使用者竄改計數。
-      try { await setDoc(voteRef, { option, votedAt: serverTimestamp() }); }
+      try { await setDoc(voteRef, { option, votedAt: serverTimestamp() }); await updateDoc(doc(db, "polls", id), { [`counts.${option}`]: increment(1) }); }
       catch (error) { alert("投票未完成，請重新整理後再試。") }
     });
   });
@@ -58,6 +57,6 @@ function renderForms(items, uid) {
 }
 if (!configured) showSetupMessage();
 else {
-  onAuthStateChanged(auth, (user) => { if (!user) signInAnonymously(auth); else { document.getElementById("user-status").textContent = "已連線，可開始填寫"; onSnapshot(query(collection(db, "announcements"), orderBy("createdAt", "desc")), (s) => renderAnnouncements(s.docs.map((d) => ({id:d.id,...d.data()})), user.uid)); onSnapshot(query(collection(db, "polls"), orderBy("createdAt", "desc")), (s) => renderPolls(s.docs.map((d) => ({id:d.id,...d.data()})), user.uid)); onSnapshot(query(collection(db, "forms"), orderBy("createdAt", "desc")), (s) => renderForms(s.docs.map((d) => ({id:d.id,...d.data()})), user.uid)); } });
+  onAuthStateChanged(auth, (user) => { if (!user) signInAnonymously(auth); else { const teacherCode = localStorage.getItem("teacherCode"); document.getElementById("user-status").textContent = teacherCode ? `導師 ${teacherCode} 已登入` : "已連線，可開始填寫"; onSnapshot(query(collection(db, "announcements"), orderBy("createdAt", "desc")), (s) => renderAnnouncements(s.docs.map((d) => ({id:d.id,...d.data()})), user.uid)); onSnapshot(query(collection(db, "polls"), orderBy("createdAt", "desc")), (s) => renderPolls(s.docs.map((d) => ({id:d.id,...d.data()})), user.uid)); onSnapshot(query(collection(db, "forms"), orderBy("createdAt", "desc")), (s) => renderForms(s.docs.map((d) => ({id:d.id,...d.data()})), user.uid)); } });
 }
 document.getElementById("refresh-announcements").onclick = () => location.reload();

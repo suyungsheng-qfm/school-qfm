@@ -2,22 +2,27 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    // 將可發布內容的教師帳號加入 Firebase custom claim：admin: true。
-    function isAdmin() { return signedIn() && request.auth.token.admin == true; }
+    // 簡易版：以 Firebase 電子郵件／密碼登入者作為管理者；導師使用匿名登入與代號驗證。
+    function isAdmin() { return signedIn() && request.auth.token.firebase.sign_in_provider == 'password'; }
+    function validTeacherCode(code) { return code in ['801','802','803','804','805','806','807','808','809','810','811','812']; }
     match /announcements/{announcementId} {
-      allow read: if signedIn();
-      allow create, update, delete: if isAdmin();
+      allow read: if signedIn(); allow create, update, delete: if isAdmin();
       match /signatures/{userId} { allow read: if isAdmin() || (signedIn() && request.auth.uid == userId); allow create: if signedIn() && request.auth.uid == userId; allow update, delete: if false; }
     }
     match /polls/{pollId} {
       allow read: if signedIn(); allow create, delete: if isAdmin();
-      // Cloud Function 處理投票計數，避免用戶端重複累計。
-      allow update: if isAdmin();
+      allow update: if isAdmin() || (signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['counts']));
       match /votes/{userId} { allow read: if isAdmin() || (signedIn() && request.auth.uid == userId); allow create: if signedIn() && request.auth.uid == userId; allow update, delete: if false; }
     }
     match /forms/{formId} {
       allow read: if signedIn(); allow create, update, delete: if isAdmin();
       match /responses/{userId} { allow read: if isAdmin() || (signedIn() && request.auth.uid == userId); allow create: if signedIn() && request.auth.uid == userId; allow update, delete: if false; }
+    }
+    match /teacherCredentials/{teacherCode} {
+      allow read: if signedIn();
+      allow create: if signedIn() && validTeacherCode(teacherCode) && request.resource.data.pinHash is string;
+      allow update: if isAdmin() || (signedIn() && resource.data.pinHash == null && request.resource.data.pinHash is string);
+      allow delete: if isAdmin();
     }
   }
 }

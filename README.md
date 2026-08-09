@@ -1,32 +1,20 @@
-# 校務互動平台
+# 115 八導 公佈網
 
-純前端的班級公佈欄，使用 Firebase Authentication 與 Cloud Firestore 即時保存：
+這是以 GitHub Pages 與 Firebase 免費服務建立的簡易班級公告系統。
 
-- 學生可匿名登入後閱讀公告、簽名確認、每題投一次票、每份表單登記一次。
-- `admin.html` 是「級導師」入口，可用 Firebase Email/Password 教師帳號登入，發布公告、投票與表單，並查看回覆數。
+- 學生與一般使用者：閱讀公告、簽名、投票與表單登記。
+- 導師：使用代號 `801`～`812`，首次自行設定 6 位數驗證碼；功能與一般使用者相同。
+- 級導師：使用 Firebase 電子郵件／密碼登入，可發布公告、投票與表單，並可把導師驗證碼重置為未設定。
 
-## Firebase 設定
+## Firebase 一次性設定
 
-1. 在 Firebase Console 建立專案，啟用 **Authentication** 的「匿名」及「電子郵件/密碼」登入方式，並建立教師帳號。
-2. 建立 Cloud Firestore 資料庫，將 [firestore.rules](firestore.rules) 的內容貼到 Rules 後發布。
-3. 使用 Admin SDK 為教師帳號設定 custom claim `{ admin: true }`；這是發布內容所需的權限。設定後教師應重新登入。
-4. 在 `functions` 資料夾執行 `npm install`，然後使用 Firebase CLI 部署 Functions 與 Hosting：`firebase deploy`。
-5. 把網頁應用程式設定值填入 `firebase-config.js`。
-6. 將資料夾以任何靜態網站服務部署（Firebase Hosting、GitHub Pages、Netlify 等）。不要直接用 `file://` 開啟。
+1. Firebase Authentication 啟用「匿名」與「電子郵件／密碼」登入。
+2. 在 Users 建立級導師的完整帳號，例如 `teacher01@qfm.kh.edu.tw`。網站登入時只需輸入 `teacher01`。
+3. 建立 Cloud Firestore 資料庫，把 [firestore.rules](firestore.rules) 貼到 Rules 分頁並發布。
+4. Authentication → Settings → Authorized domains 加入 `suyungsheng-qfm.github.io`。
 
-## 投票計數的重要說明
+此版本不使用 Cloud Functions、不需 Blaze 方案，也不需要從本機部署。網站由 GitHub Pages 直接提供。
 
-`functions/index.js` 會在新增 `/polls/{pollId}/votes/{userId}` 時以伺服器端 `increment` 更新該選項票數，因此不會把票數寫入權限交給一般使用者。
+## 導師驗證碼
 
-## GitHub
-
-本資料夾目前沒有設定 Git 遠端。建立 GitHub 空白倉庫後，在本機執行：
-
-```powershell
-git init
-git add .
-git commit -m "建立校務互動平台"
-git branch -M main
-git remote add origin https://github.com/帳號/倉庫名稱.git
-git push -u origin main
-```
+導師驗證碼會先在瀏覽器轉成雜湊值才存入 Firestore，管理頁沒有查看或直接指定驗證碼的功能；管理者只能重置為空白。這是適合校內使用的簡易機制，並非高安全性帳號系統。
