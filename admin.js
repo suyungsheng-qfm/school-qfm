@@ -136,10 +136,10 @@ async function publish(collectionName, data, form) {
 }
 
 async function renderActivity() {
-  const root = document.getElementById("activity-list");
-  const groups = [["announcements", "公告", "signatures", "簽收"], ["polls", "投票", "votes", "投票"], ["forms", "登記", "responses", "登記"]];
-  const output = [];
-  for (const [name, label, child, suffix] of groups) {
+  const groups = [["announcements", "公告", "signatures", "簽收", "announcement-activity"], ["polls", "投票", "votes", "投票", "poll-activity"], ["forms", "登記", "responses", "登記", "form-activity"]];
+  for (const [name, label, child, suffix, target] of groups) {
+    const root = document.getElementById(target);
+    const output = [];
     const snapshot = await getDocs(query(collection(db, name), orderBy("createdAt", "desc")));
     for (const item of snapshot.docs) {
       if (name === "announcements" && !item.data().requiresSignature) {
@@ -153,8 +153,8 @@ async function renderActivity() {
       const oldRecords = actions.size - completedCodes.length;
       output.push(`<li class="activity-item"><strong>${label}</strong> ${escapeHtml(item.data().title || item.data().question)}<span class="action-summary">已${suffix}：${completedCodes.join("、") || "尚無"}</span><span class="action-summary is-pending">未${suffix}：${pendingCodes.join("、") || "無"}</span>${oldRecords > 0 ? `<small>另有 ${oldRecords} 筆舊資料未記錄班級代碼。</small>` : ""}</li>`);
     }
+    root.innerHTML = output.length ? `<ul>${output.join("")}</ul>` : "<p class=\"field-note\">目前尚未發布任何內容。</p>";
   }
-  root.innerHTML = output.length ? `<ul>${output.join("")}</ul>` : "<p class=\"field-note\">目前還沒有公告、投票或登記活動。</p>";
 }
 
 async function renderTeacherStatus() {
