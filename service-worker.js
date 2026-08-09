@@ -1,4 +1,4 @@
-const CACHE_NAME = "class-hub-v24";
+const CACHE_NAME = "class-hub-v25";
 const APP_FILES = ["./", "./login.html", "./index.html", "./admin.html", "./styles.css", "./app-overrides.css", "./login-overrides.css", "./admin-overrides.css", "./admin-pages.css", "./school-import.css", "./admin-calendar-view.css", "./calendar-overrides.css", "./calendar-nav.css", "./school-calendar.css", "./app.js", "./admin.js", "./login.js", "./firebase.js", "./firebase-config.js", "./manifest.webmanifest", "./assets/11508.jpeg"];
 
 self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_FILES)).then(() => self.skipWaiting())));

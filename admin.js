@@ -160,10 +160,15 @@ function chooseAdminPage(page) {
 }
 
 async function readSchoolCalendar() {
-  schoolMessage.textContent = "正在讀取學校行事曆…";
+  const year = adminCurrentMonth.getFullYear();
+  const month = adminCurrentMonth.getMonth();
+  const monthLabel = `${year} 年 ${month + 1} 月`;
+  const monthStart = new Date(year, month, 1);
+  const nextMonthStart = new Date(year, month + 1, 1);
+  schoolMessage.textContent = `正在讀取 ${monthLabel} 的學校行事曆…`;
   schoolPreview.hidden = true;
   try {
-    const endpoint = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(SCHOOL_CALENDAR_ID)}/events?key=${encodeURIComponent(firebaseConfig.apiKey)}&singleEvents=true&orderBy=startTime&maxResults=2500&timeMin=${encodeURIComponent(new Date(new Date().getFullYear(), 0, 1).toISOString())}`;
+    const endpoint = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(SCHOOL_CALENDAR_ID)}/events?key=${encodeURIComponent(firebaseConfig.apiKey)}&singleEvents=true&orderBy=startTime&maxResults=2500&timeMin=${encodeURIComponent(monthStart.toISOString())}&timeMax=${encodeURIComponent(nextMonthStart.toISOString())}`;
     const response = await fetch(endpoint);
     if (!response.ok) throw new Error(`Google Calendar ${response.status}`);
     const payload = await response.json();
@@ -172,11 +177,11 @@ async function readSchoolCalendar() {
       return start && { ...start, sourceMonth: start.date.slice(0, 7), title: item.summary || "未命名行程", description: item.description || "", selected: true };
     }).filter(Boolean);
     if (!pendingSchoolEvents.length) {
-      schoolMessage.textContent = "讀取完成，但找不到今年起可匯入的學校行程。";
+      schoolMessage.textContent = `讀取完成，但 ${monthLabel} 沒有可匯入的學校行程。`;
       return;
     }
     renderSchoolPreview();
-    schoolMessage.textContent = `已讀取 ${pendingSchoolEvents.length} 筆行程。請逐月勾選與修改後再匯入。`;
+    schoolMessage.textContent = `已讀取 ${monthLabel} 的 ${pendingSchoolEvents.length} 筆行程。請勾選與修改後再匯入。`;
   } catch (exception) {
     schoolMessage.textContent = "讀取失敗。請確認學校行事曆已公開，並在 Google Cloud 啟用 Google Calendar API 後再試一次。";
     console.error(exception);
