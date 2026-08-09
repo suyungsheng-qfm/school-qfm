@@ -1,0 +1,9 @@
+{
+  "name": "115 八導 公佈網",
+  "short_name": "115 八導",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f9fbfc",
+  "theme_color": "#185a87",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
