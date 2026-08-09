@@ -1,5 +1,5 @@
-const CACHE_NAME = "class-hub-v21";
-const APP_FILES = ["./", "./login.html", "./index.html", "./admin.html", "./styles.css", "./app-overrides.css", "./login-overrides.css", "./admin-overrides.css", "./admin-pages.css", "./calendar-overrides.css", "./calendar-nav.css", "./school-calendar.css", "./app.js", "./admin.js", "./login.js", "./firebase.js", "./firebase-config.js", "./manifest.webmanifest", "./assets/11508.jpeg"];
+const CACHE_NAME = "class-hub-v22";
+const APP_FILES = ["./", "./login.html", "./index.html", "./admin.html", "./styles.css", "./app-overrides.css", "./login-overrides.css", "./admin-overrides.css", "./admin-pages.css", "./school-import.css", "./calendar-overrides.css", "./calendar-nav.css", "./school-calendar.css", "./app.js", "./admin.js", "./login.js", "./firebase.js", "./firebase-config.js", "./manifest.webmanifest", "./assets/11508.jpeg"];
 
 self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_FILES)).then(() => self.skipWaiting())));
 self.addEventListener("activate", (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key.startsWith("class-hub-") && key !== CACHE_NAME).map((key) => caches.delete(key)))).then(() => self.clients.claim())));
