@@ -3,12 +3,13 @@
   <head>
     <meta charset="UTF-8" /><script>if (!localStorage.getItem("classHubAccess")) location.replace("login.html");</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" /><meta name="theme-color" content="#185a87" />
-    <title>115 八導 公佈網</title><link rel="manifest" href="manifest.webmanifest" /><link rel="icon" href="assets/11508.jpeg" type="image/jpeg" /><link rel="stylesheet" href="styles.css" /><link rel="stylesheet" href="app-overrides.css" /><link rel="stylesheet" href="calendar-overrides.css" /><link rel="stylesheet" href="calendar-nav.css" />
+    <title>115 八導 公佈網</title><link rel="manifest" href="manifest.webmanifest" /><link rel="icon" href="assets/11508.jpeg" type="image/jpeg" /><link rel="stylesheet" href="styles.css" /><link rel="stylesheet" href="app-overrides.css" /><link rel="stylesheet" href="calendar-overrides.css" /><link rel="stylesheet" href="calendar-nav.css" /><link rel="stylesheet" href="school-calendar.css" />
   </head>
   <body class="app-body">
     <header class="site-header"><a class="brand" href="index.html"><img src="assets/11508.jpeg" alt="" class="brand-logo" /><span>八導 公佈網<small>GRADE 8 HUB</small></span></a><div class="header-tools"><span id="user-session" class="user-session">已登入</span><a id="admin-entry" class="admin-entry" href="admin.html" hidden>級導師管理</a><button id="sign-out-user" class="sign-out-user">登出</button><a class="calendar-external" href="https://calendar.google.com/calendar/embed?src=qisho218odg6vcgd3up3dpp6qg%40group.calendar.google.com&ctz=Asia%2FTaipei" target="_blank" rel="noopener">Google 行事曆</a></div></header>
     <main>
       <section id="calendar" class="feature-page is-active" aria-labelledby="calendar-title">
+        <section class="school-calendar"><div><p class="eyebrow">SCHOOL CALENDAR</p><h2>學校行事曆</h2></div><iframe title="學校行事曆" src="https://calendar.google.com/calendar/embed?src=qisho218odg6vcgd3up3dpp6qg%40group.calendar.google.com&ctz=Asia%2FTaipei"></iframe></section>
         <div class="calendar-toolbar"><button id="calendar-prev" class="calendar-arrow" aria-label="上個月">‹</button><div><p class="eyebrow">GRADE 8 SCHEDULE</p><h1 id="calendar-title"></h1></div><button id="calendar-next" class="calendar-arrow" aria-label="下個月">›</button></div>
         <button id="calendar-today" class="today-button">回到今天</button><div class="calendar-week" aria-hidden="true"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div><div id="calendar-grid" class="calendar-grid" aria-live="polite"></div>
         <section class="upcoming"><h2>近期年級事務</h2><div id="upcoming-events"></div></section>
