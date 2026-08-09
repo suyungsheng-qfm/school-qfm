@@ -1,0 +1,1 @@
+.admin-nav{grid-template-columns:repeat(5,1fr)}.admin-nav a{font-size:.68rem}@media(max-width:380px){.admin-nav a{font-size:.62rem}.admin-nav span{font-size:1rem}}
