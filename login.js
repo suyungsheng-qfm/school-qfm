@@ -18,7 +18,7 @@ let deferredInstallPrompt;
 
 async function hashPin(pin) { const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin))); return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(""); }
 async function ensureSignedIn() { if (!auth.currentUser) await signInAnonymously(auth); }
-function showPinInput() { codeInput.disabled = true; pinLabel.hidden = false; confirmLabel.hidden = !needsSetup; pinInput.required = true; confirmInput.required = needsSetup; button.textContent = needsSetup ? "設定並進入" : "登入"; note.textContent = needsSetup ? "請設定僅自己知道的 6 位數驗證碼。" : "請輸入你的 6 位數驗證碼。"; pinInput.focus(); }
+function showPinInput() { codeInput.disabled = true; pinLabel.hidden = false; confirmLabel.hidden = !needsSetup; pinInput.required = true; confirmInput.required = needsSetup; button.textContent = needsSetup ? "設定並進入" : "登入"; note.textContent = needsSetup ? "首次設定：請輸入並再次確認 6 位數驗證碼。" : "已找到資料，請輸入你的 6 位數驗證碼。"; pinInput.focus(); }
 function enterSite() { localStorage.setItem("classHubAccess", "true"); localStorage.setItem("teacherCode", code); location.replace("index.html"); }
 
 if (!configured) error.textContent = "尚未設定 Firebase。";

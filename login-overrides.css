@@ -1,2 +1,2 @@
-.login-card #login-note{margin:.9rem 0 0;text-align:left}
+.login-card [hidden]{display:none!important}.login-card #login-note{margin:.9rem 0 0;text-align:left}
 .login-card #install-help{margin:.85rem 0 0;padding:.8rem;text-align:left;background:#eef6fa;border-radius:10px;line-height:1.75}.share-icon{display:inline-grid;place-items:center;width:22px;height:22px;border:1px solid #185a87;border-radius:5px;color:#185a87;font-weight:900;line-height:1}
