@@ -18,21 +18,22 @@ let deferredInstallPrompt;
 
 async function hashPin(pin) { const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin))); return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(""); }
 async function ensureSignedIn() { if (!auth.currentUser) await signInAnonymously(auth); }
-function showPinInput() { codeInput.disabled = true; pinLabel.hidden = false; confirmLabel.hidden = !needsSetup; pinInput.required = true; confirmInput.required = needsSetup; button.textContent = needsSetup ? "設定並進入" : "登入"; note.textContent = needsSetup ? "首次設定：請輸入並再次確認 6 位數驗證碼。" : "已找到資料，請輸入你的 6 位數驗證碼。"; pinInput.focus(); }
+function showPinInput() { codeInput.disabled = true; pinLabel.hidden = false; confirmLabel.hidden = !needsSetup; pinInput.required = true; confirmInput.required = needsSetup; button.disabled = false; button.textContent = needsSetup ? "設定並進入" : "登入"; note.textContent = needsSetup ? "首次設定：請輸入並再次確認 6 位數驗證碼。" : "已找到資料，請輸入你的 6 位數驗證碼。"; pinInput.focus(); }
 function enterSite() { localStorage.setItem("classHubAccess", "true"); localStorage.setItem("teacherCode", code); location.replace("index.html"); }
 
 if (!configured) error.textContent = "尚未設定 Firebase。";
 else form.onsubmit = async (event) => {
   event.preventDefault(); error.textContent = "";
+  button.disabled = true;
   try {
-    await ensureSignedIn();
+    button.textContent = code ? "登入中…" : "查詢中…"; await ensureSignedIn();
     if (!code) { code = codeInput.value.trim(); const record = await getDoc(doc(db, "teacherCredentials", code)); needsSetup = !record.exists() || !record.data().pinHash; showPinInput(); return; }
     if (needsSetup && pinInput.value !== confirmInput.value) { error.textContent = "兩次輸入的驗證碼不一致。"; return; }
     const credentialRef = doc(db, "teacherCredentials", code); const pinHash = await hashPin(pinInput.value);
     if (needsSetup) await setDoc(credentialRef, { pinHash, updatedAt: serverTimestamp() }, { merge: true });
-    else { const record = await getDoc(credentialRef); if (!record.exists() || record.data().pinHash !== pinHash) { error.textContent = "使用者名稱或驗證碼錯誤。"; return; } }
+    else { const record = await getDoc(credentialRef); if (!record.exists() || record.data().pinHash !== pinHash) { error.textContent = "使用者名稱或驗證碼錯誤。"; button.disabled = false; button.textContent = "登入"; return; } }
     enterSite();
-  } catch (err) { error.textContent = "目前無法完成登入，請稍後再試。"; }
+  } catch (err) { error.textContent = "目前無法完成登入，請稍後再試。"; button.disabled = false; button.textContent = code ? (needsSetup ? "設定並進入" : "登入") : "下一步"; }
 };
 
 window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault(); deferredInstallPrompt = event; });
