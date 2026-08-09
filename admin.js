@@ -1,11 +1,13 @@
 import { auth, configured, db } from "./firebase.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { addDoc, collection, deleteDoc, doc, getCountFromServer, getDocs, orderBy, query, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { addDoc, collection, deleteDoc, doc, getDocs, orderBy, query, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const ACCOUNT_DOMAIN = "@qfm.kh.edu.tw";
 const SCHOOL_CALENDAR_ID = "qisho218odg6vcgd3up3dpp6qg@group.calendar.google.com";
+const TEACHER_CODES = Array.from({ length: 12 }, (_, index) => String(801 + index));
 let pendingSchoolEvents = [];
+let activityRefreshTimer = null;
 
 const error = document.getElementById("login-error");
 const schoolMessage = document.getElementById("school-calendar-message");
@@ -71,13 +73,21 @@ async function publish(collectionName, data, form) {
 
 async function renderActivity() {
   const root = document.getElementById("activity-list");
-  const groups = [["announcements", "公告", "signatures", "人已簽名"], ["polls", "投票", "votes", "人已投票"], ["forms", "登記", "responses", "份已送出"]];
+  const groups = [["announcements", "公告", "signatures", "簽收"], ["polls", "投票", "votes", "投票"], ["forms", "登記", "responses", "登記"]];
   const output = [];
   for (const [name, label, child, suffix] of groups) {
     const snapshot = await getDocs(query(collection(db, name), orderBy("createdAt", "desc")));
     for (const item of snapshot.docs) {
-      const count = await getCountFromServer(collection(db, name, item.id, child));
-      output.push(`<li><strong>${label}</strong> ${escapeHtml(item.data().title || item.data().question)}：${count.data().count} ${suffix}</li>`);
+      if (name === "announcements" && !item.data().requiresSignature) {
+        output.push(`<li class="activity-item"><strong>${label}</strong> ${escapeHtml(item.data().title)}<span class="action-summary">此公告無須簽收</span></li>`);
+        continue;
+      }
+      const actions = await getDocs(collection(db, name, item.id, child));
+      const completed = new Set(actions.docs.map((action) => action.data().teacherCode).filter((code) => TEACHER_CODES.includes(code)));
+      const completedCodes = TEACHER_CODES.filter((code) => completed.has(code));
+      const pendingCodes = TEACHER_CODES.filter((code) => !completed.has(code));
+      const oldRecords = actions.size - completedCodes.length;
+      output.push(`<li class="activity-item"><strong>${label}</strong> ${escapeHtml(item.data().title || item.data().question)}<span class="action-summary">已${suffix}：${completedCodes.join("、") || "尚無"}</span><span class="action-summary is-pending">未${suffix}：${pendingCodes.join("、") || "無"}</span>${oldRecords > 0 ? `<small>另有 ${oldRecords} 筆舊資料未記錄班級代碼。</small>` : ""}</li>`);
     }
   }
   root.innerHTML = output.length ? `<ul>${output.join("")}</ul>` : "<p class=\"field-note\">目前還沒有公告、投票或登記活動。</p>";
@@ -169,8 +179,12 @@ if (!configured) {
       document.getElementById("admin-email").textContent = user.email;
       chooseAdminPage("calendar");
       renderActivity();
+      if (!activityRefreshTimer) activityRefreshTimer = setInterval(renderActivity, 30000);
       renderTeacherStatus();
       renderCalendarAdminList();
+    } else if (activityRefreshTimer) {
+      clearInterval(activityRefreshTimer);
+      activityRefreshTimer = null;
     }
   });
 
