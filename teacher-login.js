@@ -2,7 +2,7 @@ import { auth, configured, db } from "./firebase.js";
 import { signInAnonymously } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { doc, getDoc, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js"));
+if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").then((registration) => registration.update()));
 const error = document.getElementById("teacher-error");
 const codeForm = document.getElementById("code-form");
 const pinForm = document.getElementById("pin-form");
