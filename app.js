@@ -10,6 +10,18 @@ const dateText = (timestamp) => timestamp?.toDate ? timestamp.toDate().toLocaleD
 let currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let calendarEvents = [];
 
+function showEventDetails(event) {
+  const dialog = document.createElement("dialog");
+  dialog.className = "event-dialog";
+  dialog.style.cssText = "width:min(92vw,430px);padding:0;border:0;border-radius:16px;box-shadow:0 16px 42px #18324740;color:#163348";
+  dialog.innerHTML = `<article style="position:relative;padding:1.35rem"><button class="dialog-close" type="button" aria-label="關閉" style="position:absolute;top:.65rem;right:.65rem;width:34px;min-height:34px;padding:0;border-radius:50%;background:#edf5f8;color:#185a87;font-size:1.45rem">×</button><p class="eyebrow">年級行事曆</p><h2>${escapeHtml(event.title)}</h2><p style="color:#185a87;font-weight:800">${escapeHtml(event.date)}${event.startTime ? ` ${escapeHtml(event.startTime)}` : ""}</p><p>${escapeHtml(event.description || "此行程沒有補充說明。").replace(/\n/g, "<br>")}</p></article>`;
+  document.body.append(dialog);
+  dialog.querySelector(".dialog-close").onclick = () => dialog.close();
+  dialog.onclose = () => dialog.remove();
+  dialog.onclick = (click) => { if (click.target === dialog) dialog.close(); };
+  if (dialog.showModal) dialog.showModal(); else dialog.setAttribute("open", "");
+}
+
 function showSetupMessage() { document.querySelectorAll(".card-grid").forEach((node) => node.innerHTML = '<p class="empty">尚未設定 Firebase。請依 README 完成設定後重新載入。</p>'); }
 function renderCalendar() {
   const year = currentMonth.getFullYear(), month = currentMonth.getMonth();
@@ -23,6 +35,7 @@ function renderCalendar() {
     if (today.getFullYear() === year && today.getMonth() === month && today.getDate() === date) cell.classList.add("is-today");
     const events = calendarEvents.filter((event) => event.date === key).slice(0, 3);
     cell.innerHTML = `<time datetime="${key}">${date}</time>${events.map((event) => `<button class="calendar-event" title="${escapeHtml(event.description || event.title)}">${escapeHtml(event.title)}</button>`).join("")}${calendarEvents.filter((event) => event.date === key).length > 3 ? '<span class="more-events">更多…</span>' : ""}`;
+    cell.querySelectorAll(".calendar-event").forEach((button, index) => { button.onclick = () => showEventDetails(events[index]); });
     grid.append(cell);
   }
   const upcoming = calendarEvents.filter((event) => event.date >= new Date().toISOString().slice(0,10)).sort((a,b) => `${a.date}${a.startTime||""}`.localeCompare(`${b.date}${b.startTime||""}`)).slice(0,5);

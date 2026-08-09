@@ -1,7 +1,7 @@
 import { auth, configured, db } from "./firebase.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { addDoc, collection, deleteDoc, doc, getDocs, orderBy, query, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { addDoc, collection, deleteDoc, doc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const ACCOUNT_DOMAIN = "@qfm.kh.edu.tw";
 const SCHOOL_CALENDAR_ID = "qisho218odg6vcgd3up3dpp6qg@group.calendar.google.com";
@@ -56,8 +56,39 @@ function renderAdminCalendar() {
       const events = adminCalendarEvents.filter((event) => event.date === key);
       cell.innerHTML = `<time>${day}</time>${events.slice(0, 3).map((event) => `<span class="admin-calendar-event" title="${escapeHtml(event.title)}">${escapeHtml(event.startTime ? `${event.startTime} ${event.title}` : event.title)}</span>`).join("")}${events.length > 3 ? `<span class="more-events">另有 ${events.length - 3} 項</span>` : ""}`;
     }
+    cell.querySelectorAll(".admin-calendar-event").forEach((node, index) => {
+      node.tabIndex = 0;
+      node.setAttribute("role", "button");
+      node.style.cursor = "pointer";
+      const edit = () => openAdminEventEditor(events[index]);
+      node.onclick = edit;
+      node.onkeydown = (keyboard) => { if (keyboard.key === "Enter" || keyboard.key === " ") { keyboard.preventDefault(); edit(); } };
+    });
     grid.append(cell);
   }
+}
+
+function openAdminEventEditor(event) {
+  const dialog = document.createElement("dialog");
+  dialog.className = "event-dialog admin-event-editor";
+  dialog.style.cssText = "width:min(92vw,480px);padding:0;border:0;border-radius:16px;box-shadow:0 16px 42px #18324740;color:#163348";
+  dialog.innerHTML = `<form method="dialog" style="position:relative;display:grid;gap:.85rem;padding:1.35rem"><button class="dialog-close" type="button" aria-label="關閉" style="position:absolute;top:.65rem;right:.65rem;width:34px;min-height:34px;padding:0;border-radius:50%;background:#edf5f8;color:#185a87;font-size:1.45rem">×</button><p class="eyebrow">編輯年級行事曆</p><h2>修改事件</h2><label>事務名稱<input name="title" maxlength="80" required value="${escapeHtml(event.title)}" /></label><label>日期<input name="date" type="date" required value="${escapeHtml(event.date)}" /></label><label>時間（選填）<input name="startTime" type="time" value="${escapeHtml(event.startTime || "")}" /></label><label>說明（選填）<textarea name="description" rows="4" maxlength="300">${escapeHtml(event.description || "")}</textarea></label><button type="submit">儲存修改</button></form>`;
+  document.body.append(dialog);
+  dialog.querySelector(".dialog-close").onclick = () => dialog.close();
+  dialog.onclose = () => dialog.remove();
+  dialog.onclick = (click) => { if (click.target === dialog) dialog.close(); };
+  dialog.querySelector("form").onsubmit = async (submit) => {
+    submit.preventDefault();
+    const data = new FormData(submit.currentTarget);
+    try {
+      await updateDoc(doc(db, "calendarEvents", event.id), { title: data.get("title").trim(), date: data.get("date"), startTime: data.get("startTime"), description: data.get("description").trim(), updatedAt: serverTimestamp() });
+      dialog.close();
+      renderCalendarAdminList();
+    } catch (exception) {
+      alert(`儲存失敗：${exception.message}`);
+    }
+  };
+  if (dialog.showModal) dialog.showModal(); else dialog.setAttribute("open", "");
 }
 
 function renderSchoolPreview() {
