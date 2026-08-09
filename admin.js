@@ -259,10 +259,14 @@ if (!configured) {
     }
   });
 
+  const usernameInput = document.getElementById("username");
+  const passwordInput = document.getElementById("password");
+  usernameInput.oninput = () => { usernameInput.value = usernameInput.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""); };
+  passwordInput.oninput = () => { passwordInput.value = passwordInput.value.replace(/\D/g, ""); };
   document.getElementById("login-form").onsubmit = async (event) => {
     event.preventDefault();
     error.textContent = "";
-    const username = document.getElementById("username").value.trim().toLowerCase();
+    const username = usernameInput.value.trim();
     try {
       await signInWithEmailAndPassword(auth, `${username}${ACCOUNT_DOMAIN}`, document.getElementById("password").value);
     } catch (exception) {
