@@ -8,6 +8,8 @@ const SCHOOL_CALENDAR_ID = "qisho218odg6vcgd3up3dpp6qg@group.calendar.google.com
 const TEACHER_CODES = Array.from({ length: 12 }, (_, index) => String(801 + index));
 let pendingSchoolEvents = [];
 let activityRefreshTimer = null;
+let adminCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let adminCalendarEvents = [];
 
 const error = document.getElementById("login-error");
 const schoolMessage = document.getElementById("school-calendar-message");
@@ -25,6 +27,37 @@ function eventDateTime(value) {
 
 function getSchoolMonths() {
   return [...new Set(pendingSchoolEvents.map((event) => event.sourceMonth))].sort();
+}
+
+function calendarDate(year, month, day) {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function renderAdminCalendar() {
+  const year = adminCurrentMonth.getFullYear();
+  const month = adminCurrentMonth.getMonth();
+  const title = document.getElementById("admin-calendar-title");
+  const grid = document.getElementById("admin-calendar-grid");
+  title.textContent = `${year} 年 ${month + 1} 月`;
+  grid.innerHTML = "";
+  const firstDay = new Date(year, month, 1).getDay();
+  const days = new Date(year, month + 1, 0).getDate();
+  const today = new Date();
+  const todayKey = calendarDate(today.getFullYear(), today.getMonth(), today.getDate());
+  for (let slot = 0; slot < 42; slot += 1) {
+    const day = slot - firstDay + 1;
+    const cell = document.createElement("div");
+    cell.className = "admin-calendar-day";
+    if (day < 1 || day > days) {
+      cell.classList.add("is-empty-day");
+    } else {
+      const key = calendarDate(year, month, day);
+      if (key === todayKey) cell.classList.add("is-today");
+      const events = adminCalendarEvents.filter((event) => event.date === key);
+      cell.innerHTML = `<time>${day}</time>${events.slice(0, 3).map((event) => `<span class="admin-calendar-event" title="${escapeHtml(event.title)}">${escapeHtml(event.startTime ? `${event.startTime} ${event.title}` : event.title)}</span>`).join("")}${events.length > 3 ? `<span class="more-events">另有 ${events.length - 3} 項</span>` : ""}`;
+    }
+    grid.append(cell);
+  }
 }
 
 function renderSchoolPreview() {
@@ -107,6 +140,8 @@ async function renderCalendarAdminList() {
   const root = document.getElementById("calendar-admin-list");
   const snapshot = await getDocs(collection(db, "calendarEvents"));
   const events = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).sort((a, b) => `${a.date}${a.startTime || ""}`.localeCompare(`${b.date}${b.startTime || ""}`));
+  adminCalendarEvents = events;
+  renderAdminCalendar();
   root.innerHTML = events.length ? `<h3>已發布事件</h3><ul>${events.slice(0, 30).map((event) => `<li><span><strong>${escapeHtml(event.date)}</strong> ${escapeHtml(event.title)}</span><button data-delete-event="${event.id}" class="secondary">刪除</button></li>`).join("")}</ul>` : "<p class=\"field-note\">尚未建立行事曆事件。</p>";
   root.querySelectorAll("[data-delete-event]").forEach((button) => {
     button.onclick = async () => {
@@ -206,6 +241,9 @@ if (!configured) {
   document.getElementById("read-school-calendar").onclick = readSchoolCalendar;
   document.getElementById("confirm-school-import").onclick = importSchoolMonth;
   schoolMonth.onchange = renderSchoolPreview;
+  document.getElementById("admin-calendar-prev").onclick = () => { adminCurrentMonth = new Date(adminCurrentMonth.getFullYear(), adminCurrentMonth.getMonth() - 1, 1); renderAdminCalendar(); };
+  document.getElementById("admin-calendar-next").onclick = () => { adminCurrentMonth = new Date(adminCurrentMonth.getFullYear(), adminCurrentMonth.getMonth() + 1, 1); renderAdminCalendar(); };
+  document.getElementById("admin-calendar-today").onclick = () => { adminCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); renderAdminCalendar(); };
   document.querySelectorAll("[data-admin-nav]").forEach((link) => { link.onclick = (event) => { event.preventDefault(); chooseAdminPage(link.dataset.adminNav); }; });
   document.getElementById("reset-teacher-form").onsubmit = async (event) => {
     event.preventDefault();
