@@ -55,15 +55,15 @@ function renderAdminCalendar() {
       if (key === todayKey) cell.classList.add("is-today");
       const events = adminCalendarEvents.filter((event) => event.date === key);
       cell.innerHTML = `<time>${day}</time>${events.slice(0, 3).map((event) => `<span class="admin-calendar-event" title="${escapeHtml(event.title)}">${escapeHtml(event.startTime ? `${event.startTime} ${event.title}` : event.title)}</span>`).join("")}${events.length > 3 ? `<span class="more-events">另有 ${events.length - 3} 項</span>` : ""}`;
+      cell.querySelectorAll(".admin-calendar-event").forEach((node, index) => {
+        node.tabIndex = 0;
+        node.setAttribute("role", "button");
+        node.style.cursor = "pointer";
+        const edit = () => openAdminEventEditor(events[index]);
+        node.onclick = edit;
+        node.onkeydown = (keyboard) => { if (keyboard.key === "Enter" || keyboard.key === " ") { keyboard.preventDefault(); edit(); } };
+      });
     }
-    cell.querySelectorAll(".admin-calendar-event").forEach((node, index) => {
-      node.tabIndex = 0;
-      node.setAttribute("role", "button");
-      node.style.cursor = "pointer";
-      const edit = () => openAdminEventEditor(events[index]);
-      node.onclick = edit;
-      node.onkeydown = (keyboard) => { if (keyboard.key === "Enter" || keyboard.key === " ") { keyboard.preventDefault(); edit(); } };
-    });
     grid.append(cell);
   }
 }
