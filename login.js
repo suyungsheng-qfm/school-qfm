@@ -38,6 +38,12 @@ else form.onsubmit = async (event) => {
 window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault(); deferredInstallPrompt = event; });
 document.getElementById("install-app").onclick = async () => {
   const help = document.getElementById("install-help");
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (isIOS) {
+    help.hidden = false;
+    help.innerHTML = "<strong>iPhone 安裝方式</strong><br>1. 請使用 Safari 開啟此頁。<br>2. 點底部的 <span class=\"share-icon\" aria-label=\"分享圖示\">⇧</span>「分享」圖示。<br>3. 向下滑動並選擇「加入主畫面」。<br>4. 點「新增」，桌面會出現狼 Logo 的 App 圖示。";
+    return;
+  }
   if (deferredInstallPrompt) { deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; return; }
   help.hidden = false; help.textContent = "請在瀏覽器選單選擇「安裝應用程式」或「加入主畫面」。";
 };
