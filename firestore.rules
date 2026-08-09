@@ -18,6 +18,7 @@ service cloud.firestore {
       allow read: if signedIn(); allow create, update, delete: if isAdmin();
       match /responses/{userId} { allow read: if isAdmin() || (signedIn() && request.auth.uid == userId); allow create: if signedIn() && request.auth.uid == userId; allow update, delete: if false; }
     }
+    match /calendarEvents/{eventId} { allow read: if signedIn(); allow create, update, delete: if isAdmin(); }
     match /teacherCredentials/{teacherCode} {
       allow read: if signedIn();
       allow create: if signedIn() && validTeacherCode(teacherCode) && request.resource.data.pinHash is string;

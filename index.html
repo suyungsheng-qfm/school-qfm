@@ -1,48 +1,23 @@
 <!doctype html>
 <html lang="zh-Hant">
   <head>
-    <meta charset="UTF-8" />
-    <script>if (!localStorage.getItem("classHubAccess")) location.replace("login.html");</script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#185a87" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <title>115 八導 公佈網</title>
-    <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="icon" href="icon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="app-overrides.css" />
+    <meta charset="UTF-8" /><script>if (!localStorage.getItem("classHubAccess")) location.replace("login.html");</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" /><meta name="theme-color" content="#185a87" />
+    <title>115 八導 公佈網</title><link rel="manifest" href="manifest.webmanifest" /><link rel="icon" href="assets/11508.jpeg" type="image/jpeg" /><link rel="stylesheet" href="styles.css" /><link rel="stylesheet" href="app-overrides.css" /><link rel="stylesheet" href="calendar-overrides.css" /><link rel="stylesheet" href="calendar-nav.css" />
   </head>
-  <body>
-    <header class="site-header">
-      <a class="brand" href="index.html"><span class="brand-mark">115</span><span>八導 公佈網<small>Class Hub</small></span></a>
-    </header>
+  <body class="app-body">
+    <header class="site-header"><a class="brand" href="index.html"><img src="assets/11508.jpeg" alt="" class="brand-logo" /><span>八導 公佈網<small>GRADE 8 HUB</small></span></a><a class="calendar-external" href="https://calendar.google.com/calendar/embed?src=qisho218odg6vcgd3up3dpp6qg%40group.calendar.google.com&ctz=Asia%2FTaipei" target="_blank" rel="noopener">Google 行事曆</a></header>
     <main>
-      <section class="hero">
-        <p class="eyebrow">八年級導師團隊 · CLASS HUB</p>
-        <h1>八年級共同事務<br />即時掌握</h1>
-        <p>發布年級公告、確認重要事項、進行投票與資料登記，讓 12 位導師同步掌握。</p>
-        <span id="user-status" class="status">正在連線…</span>
+      <section id="calendar" class="feature-page is-active" aria-labelledby="calendar-title">
+        <div class="calendar-toolbar"><button id="calendar-prev" class="calendar-arrow" aria-label="上個月">‹</button><div><p class="eyebrow">GRADE 8 SCHEDULE</p><h1 id="calendar-title"></h1></div><button id="calendar-next" class="calendar-arrow" aria-label="下個月">›</button></div>
+        <button id="calendar-today" class="today-button">回到今天</button><div class="calendar-week" aria-hidden="true"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div><div id="calendar-grid" class="calendar-grid" aria-live="polite"></div>
+        <section class="upcoming"><h2>近期年級事務</h2><div id="upcoming-events"></div></section>
       </section>
-      <section id="announcements" class="content-section" aria-labelledby="announcement-title">
-        <div class="section-heading"><div><p class="eyebrow">NOTICE BOARD</p><h2 id="announcement-title">最新公告</h2></div><button id="refresh-announcements" class="text-button">重新整理</button></div>
-        <div id="announcements-list" class="card-grid" aria-live="polite"></div>
-      </section>
-      <section id="polls" class="content-section shaded" aria-labelledby="poll-title">
-        <div class="section-heading"><div><p class="eyebrow">QUICK POLL</p><h2 id="poll-title">年級投票</h2></div></div>
-        <div id="polls-list" class="card-grid" aria-live="polite"></div>
-      </section>
-      <section id="forms" class="content-section" aria-labelledby="form-title">
-        <div class="section-heading"><div><p class="eyebrow">REGISTRATION</p><h2 id="form-title">表單登記</h2></div></div>
-        <div id="forms-list" class="card-grid" aria-live="polite"></div>
-      </section>
+      <section id="announcements" class="feature-page" aria-labelledby="announcement-title"><div class="section-heading"><div><p class="eyebrow">NOTICE BOARD</p><h2 id="announcement-title">年級公告</h2></div><button id="refresh-announcements" class="text-button">重新整理</button></div><div id="announcements-list" class="card-grid" aria-live="polite"></div></section>
+      <section id="polls" class="feature-page shaded" aria-labelledby="poll-title"><div class="section-heading"><div><p class="eyebrow">QUICK POLL</p><h2 id="poll-title">年級投票</h2></div></div><div id="polls-list" class="card-grid" aria-live="polite"></div></section>
+      <section id="forms" class="feature-page" aria-labelledby="form-title"><div class="section-heading"><div><p class="eyebrow">REGISTRATION</p><h2 id="form-title">資料登記</h2></div></div><div id="forms-list" class="card-grid" aria-live="polite"></div></section>
     </main>
-    <nav class="mobile-nav" aria-label="手機導覽">
-      <a href="#announcements"><span>▣</span>公告</a><a href="#polls"><span>●</span>投票</a><a href="#forms"><span>✎</span>登記</a>
-    </nav>
-    <footer>115 八導 公佈網</footer>
-    <template id="empty-template"><p class="empty">目前尚無資料。</p></template>
-    <script type="module" src="app.js"></script>
+    <nav class="mobile-nav" aria-label="主要功能"><a href="#calendar" data-page="calendar" class="is-selected"><span>▦</span>行事曆</a><a href="#announcements" data-page="announcements"><span>▣</span>公告</a><a href="#polls" data-page="polls"><span>●</span>投票</a><a href="#forms" data-page="forms"><span>✎</span>登記</a></nav>
+    <template id="empty-template"><p class="empty">目前尚無資料。</p></template><script type="module" src="app.js"></script>
   </body>
 </html>

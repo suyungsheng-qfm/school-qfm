@@ -1,6 +1,6 @@
 import { auth, configured, db } from "./firebase.js";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { addDoc, collection, doc, getCountFromServer, getDocs, orderBy, query, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { addDoc, collection, deleteDoc, doc, getCountFromServer, getDocs, orderBy, query, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const error = document.getElementById("login-error");
 const ACCOUNT_DOMAIN = "@qfm.kh.edu.tw";
@@ -30,12 +30,16 @@ async function renderTeacherStatus() {
   const credentials = new Map(snapshot.docs.map((item) => [item.id, item.data()]));
   root.innerHTML = `<ul>${Array.from({ length: 12 }, (_, index) => String(801 + index)).map((code) => { const configured = Boolean(credentials.get(code)?.pinHash); return `<li><span>${code}</span><strong class="${configured ? "is-set" : "is-empty"}">${configured ? "已設定" : "未設定"}</strong></li>`; }).join("")}</ul>`;
 }
+function unfoldIcs(text) { return text.replace(/\r?\n[ \t]/g, "").split(/\r?\n/); }
+function parseIcsDate(value) { const match = value?.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2}))?/); return match ? { date:`${match[1]}-${match[2]}-${match[3]}`, startTime:match[4] ? `${match[4]}:${match[5]}` : "" } : null; }
+function parseIcs(text) { const events=[]; let current=null; unfoldIcs(text).forEach((line)=>{ if(line==="BEGIN:VEVENT") current={}; else if(line==="END:VEVENT" && current?.date && current.title) { events.push(current); current=null; } else if(current){ const divider=line.indexOf(":"); if(divider<0)return; const key=line.slice(0,divider).split(";")[0]; const value=line.slice(divider+1).replace(/\\n/g,"\n").replace(/\\,/g,","); if(key==="SUMMARY")current.title=value; if(key==="DESCRIPTION")current.description=value; if(key==="DTSTART"){const parsed=parseIcsDate(value);if(parsed)Object.assign(current,parsed);} } }); return events; }
+async function renderCalendarAdminList() { const root=document.getElementById("calendar-admin-list"); const snap=await getDocs(collection(db,"calendarEvents")); const events=snap.docs.map((item)=>({id:item.id,...item.data()})).sort((a,b)=>`${a.date}${a.startTime||""}`.localeCompare(`${b.date}${b.startTime||""}`)); root.innerHTML=events.length?`<h3>已發布事件</h3><ul>${events.slice(0,20).map((event)=>`<li><span><strong>${escapeHtml(event.date)}</strong> ${escapeHtml(event.title)}</span><button data-delete-event="${event.id}" class="secondary">刪除</button></li>`).join("")}</ul>`:"<p class=field-note>尚未建立行事曆事件。</p>"; root.querySelectorAll("[data-delete-event]").forEach((button)=>button.onclick=async()=>{if(confirm("確定刪除此行事曆事件？")){await deleteDoc(doc(db,"calendarEvents",button.dataset.deleteEvent));renderCalendarAdminList();}}); }
 if (!configured) error.textContent = "尚未設定 Firebase，請先完成 firebase-config.js。";
 else {
   onAuthStateChanged(auth, async (user) => {
     document.getElementById("login-panel").hidden = Boolean(user);
     document.getElementById("dashboard").hidden = !user;
-    if (user) { document.getElementById("admin-email").textContent = user.email; renderActivity(); renderTeacherStatus(); }
+    if (user) { document.getElementById("admin-email").textContent = user.email; renderActivity(); renderTeacherStatus(); renderCalendarAdminList(); }
   });
   document.getElementById("login-form").onsubmit = async (event) => {
     event.preventDefault(); error.textContent = "";
@@ -47,5 +51,7 @@ else {
   document.getElementById("announcement-form").onsubmit = (e) => { e.preventDefault(); const d = new FormData(e.target); publish("announcements", { title:d.get("title"), body:d.get("body"), requiresSignature:d.has("requiresSignature") }, e.target); };
   document.getElementById("poll-form").onsubmit = (e) => { e.preventDefault(); const d = new FormData(e.target); const options = lines(d.get("options")); if (options.length < 2) return alert("請至少填寫兩個選項。"); publish("polls", { question:d.get("question"), options, counts:Object.fromEntries(options.map((_, i) => [i, 0])) }, e.target); };
   document.getElementById("form-form").onsubmit = (e) => { e.preventDefault(); const d = new FormData(e.target); const fields = lines(d.get("fields")); if (!fields.length) return alert("請至少填寫一個欄位。"); publish("forms", { title:d.get("title"), description:d.get("description"), fields }, e.target); };
+  document.getElementById("calendar-event-form").onsubmit = async (event) => { event.preventDefault(); const d=new FormData(event.target); await publish("calendarEvents",{title:d.get("title"),date:d.get("date"),startTime:d.get("startTime"),description:d.get("description")},event.target); renderCalendarAdminList(); };
+  document.getElementById("calendar-import-form").onsubmit = async (event) => { event.preventDefault(); const message=document.getElementById("calendar-import-message"); message.textContent="讀取中…"; try { const file=document.getElementById("ical-file").files[0]; const url=document.getElementById("ical-url").value.trim(); const content=file ? await file.text() : await (await fetch(url)).text(); const events=parseIcs(content); if(!events.length)throw new Error("沒有可匯入的事件"); await Promise.all(events.map((item)=>addDoc(collection(db,"calendarEvents"),{...item,importedAt:serverTimestamp()}))); message.textContent=`已匯入 ${events.length} 個事件。`; event.target.reset(); renderCalendarAdminList(); } catch (e) { message.textContent="匯入失敗。請確認使用公開 iCal 網址，或改用 .ics 檔案。"; } };
   document.getElementById("reset-teacher-form").onsubmit = async (event) => { event.preventDefault(); const code = document.getElementById("reset-teacher-code").value; const message = document.getElementById("reset-message"); if (!confirm(`確定重置導師 ${code} 的驗證碼？`)) return; message.textContent = "重置中…"; try { await setDoc(doc(db, "teacherCredentials", code), { pinHash: null, resetAt: serverTimestamp() }, { merge: true }); message.textContent = `${code} 已重置為未設定。`; renderTeacherStatus(); } catch (e) { message.textContent = "重置失敗，請確認管理者帳號已登入。"; } };
 }
