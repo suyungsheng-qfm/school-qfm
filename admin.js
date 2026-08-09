@@ -24,12 +24,18 @@ async function renderActivity() {
   }
   root.innerHTML = output.length ? `<ul>${output.join("")}</ul>` : "尚未發布任何內容。";
 }
+async function renderTeacherStatus() {
+  const root = document.getElementById("teacher-status");
+  const snapshot = await getDocs(collection(db, "teacherCredentials"));
+  const credentials = new Map(snapshot.docs.map((item) => [item.id, item.data()]));
+  root.innerHTML = `<ul>${Array.from({ length: 12 }, (_, index) => String(801 + index)).map((code) => { const configured = Boolean(credentials.get(code)?.pinHash); return `<li><span>${code}</span><strong class="${configured ? "is-set" : "is-empty"}">${configured ? "已設定" : "未設定"}</strong></li>`; }).join("")}</ul>`;
+}
 if (!configured) error.textContent = "尚未設定 Firebase，請先完成 firebase-config.js。";
 else {
   onAuthStateChanged(auth, async (user) => {
     document.getElementById("login-panel").hidden = Boolean(user);
     document.getElementById("dashboard").hidden = !user;
-    if (user) { document.getElementById("admin-email").textContent = user.email; renderActivity(); }
+    if (user) { document.getElementById("admin-email").textContent = user.email; renderActivity(); renderTeacherStatus(); }
   });
   document.getElementById("login-form").onsubmit = async (event) => {
     event.preventDefault(); error.textContent = "";
@@ -41,5 +47,5 @@ else {
   document.getElementById("announcement-form").onsubmit = (e) => { e.preventDefault(); const d = new FormData(e.target); publish("announcements", { title:d.get("title"), body:d.get("body"), requiresSignature:d.has("requiresSignature") }, e.target); };
   document.getElementById("poll-form").onsubmit = (e) => { e.preventDefault(); const d = new FormData(e.target); const options = lines(d.get("options")); if (options.length < 2) return alert("請至少填寫兩個選項。"); publish("polls", { question:d.get("question"), options, counts:Object.fromEntries(options.map((_, i) => [i, 0])) }, e.target); };
   document.getElementById("form-form").onsubmit = (e) => { e.preventDefault(); const d = new FormData(e.target); const fields = lines(d.get("fields")); if (!fields.length) return alert("請至少填寫一個欄位。"); publish("forms", { title:d.get("title"), description:d.get("description"), fields }, e.target); };
-  document.getElementById("reset-teacher-form").onsubmit = async (event) => { event.preventDefault(); const code = document.getElementById("reset-teacher-code").value; const message = document.getElementById("reset-message"); if (!confirm(`確定重置導師 ${code} 的驗證碼？`)) return; message.textContent = "重置中…"; try { await setDoc(doc(db, "teacherCredentials", code), { pinHash: null, resetAt: serverTimestamp() }, { merge: true }); message.textContent = `${code} 已重置為未設定。`; } catch (e) { message.textContent = "重置失敗，請確認管理者帳號已登入。"; } };
+  document.getElementById("reset-teacher-form").onsubmit = async (event) => { event.preventDefault(); const code = document.getElementById("reset-teacher-code").value; const message = document.getElementById("reset-message"); if (!confirm(`確定重置導師 ${code} 的驗證碼？`)) return; message.textContent = "重置中…"; try { await setDoc(doc(db, "teacherCredentials", code), { pinHash: null, resetAt: serverTimestamp() }, { merge: true }); message.textContent = `${code} 已重置為未設定。`; renderTeacherStatus(); } catch (e) { message.textContent = "重置失敗，請確認管理者帳號已登入。"; } };
 }
