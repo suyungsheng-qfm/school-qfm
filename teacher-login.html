@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#185a87" /><title>導師登入｜115 八導 公佈網</title>
+    <link rel="manifest" href="manifest.webmanifest" /><link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="admin-body">
+    <header class="site-header"><a class="brand" href="index.html"><span class="brand-mark">115</span><span>八導 公佈網<small>Class Hub</small></span></a><nav><a href="index.html">回到公佈欄</a></nav></header>
+    <main class="admin-main"><section class="auth-card" id="teacher-login-panel">
+      <p class="eyebrow">TEACHER ACCESS</p><h1>導師登入</h1><p>請輸入導師代號。首次使用時，可自行設定 6 位數驗證碼。</p>
+      <form id="code-form"><label>導師代號<input id="teacher-code" inputmode="numeric" autocomplete="username" pattern="80[1-9]|81[0-2]" placeholder="801～812" maxlength="3" required /></label><button>下一步</button></form>
+      <form id="pin-form" hidden><p id="pin-title" class="form-title"></p><label>6 位數驗證碼<input id="teacher-pin" type="password" inputmode="numeric" autocomplete="current-password" pattern="\d{6}" minlength="6" maxlength="6" required /></label><label id="confirm-label" hidden>再次輸入驗證碼<input id="teacher-pin-confirm" type="password" inputmode="numeric" autocomplete="new-password" pattern="\d{6}" minlength="6" maxlength="6" /></label><button id="pin-button">登入</button><button type="button" id="change-code" class="secondary">換一個代號</button></form>
+      <p id="teacher-error" class="error" role="alert"></p>
+    </section></main>
+    <script type="module" src="teacher-login.js"></script>
+  </body>
+</html>

@@ -1,0 +1,2 @@
+.header-actions{display:flex;gap:.45rem}select{width:100%;font:inherit;border:1px solid #b8cbd5;border-radius:10px;padding:.68rem;background:#fff;font-size:16px}
+@media(max-width:760px){.mobile-nav{grid-template-columns:repeat(5,1fr)}.mobile-nav a{font-size:.68rem}}
