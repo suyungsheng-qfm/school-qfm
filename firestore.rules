@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    // 將可發布內容的教師帳號加入 Firebase custom claim：admin: true。
+    function isAdmin() { return signedIn() && request.auth.token.admin == true; }
+    match /announcements/{announcementId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+      match /signatures/{userId} { allow read: if isAdmin() || (signedIn() && request.auth.uid == userId); allow create: if signedIn() && request.auth.uid == userId; allow update, delete: if false; }
+    }
+    match /polls/{pollId} {
+      allow read: if signedIn(); allow create, delete: if isAdmin();
+      // Cloud Function 處理投票計數，避免用戶端重複累計。
+      allow update: if isAdmin();
+      match /votes/{userId} { allow read: if isAdmin() || (signedIn() && request.auth.uid == userId); allow create: if signedIn() && request.auth.uid == userId; allow update, delete: if false; }
+    }
+    match /forms/{formId} {
+      allow read: if signedIn(); allow create, update, delete: if isAdmin();
+      match /responses/{userId} { allow read: if isAdmin() || (signedIn() && request.auth.uid == userId); allow create: if signedIn() && request.auth.uid == userId; allow update, delete: if false; }
+    }
+  }
+}

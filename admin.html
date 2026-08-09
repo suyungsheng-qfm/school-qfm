@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>級導師管理｜校務互動平台</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="admin-body">
+    <header class="site-header"><a class="brand" href="index.html">校務互動平台 <span>Class Hub</span></a><nav><a href="index.html">回到公佈欄</a></nav></header>
+    <main class="admin-main">
+      <section id="login-panel" class="auth-card">
+        <p class="eyebrow">TEACHER PORTAL</p><h1>級導師管理</h1><p>請使用已授權的教師帳號登入。</p>
+        <form id="login-form"><label>電子信箱<input id="email" type="email" autocomplete="email" required /></label><label>密碼<input id="password" type="password" autocomplete="current-password" required /></label><button>登入</button><p id="login-error" class="error" role="alert"></p></form>
+      </section>
+      <section id="dashboard" hidden>
+        <div class="section-heading"><div><p class="eyebrow">TEACHER PORTAL</p><h1>管理中心</h1><p id="admin-email"></p></div><button id="sign-out" class="secondary">登出</button></div>
+        <div class="admin-grid">
+          <article class="panel"><h2>發布公告</h2><form id="announcement-form"><label>標題<input name="title" maxlength="80" required /></label><label>內容<textarea name="body" rows="5" maxlength="1500" required></textarea></label><label class="check"><input name="requiresSignature" type="checkbox" checked /> 需要閱讀簽名</label><button>發布公告</button></form></article>
+          <article class="panel"><h2>建立投票</h2><form id="poll-form"><label>投票題目<input name="question" maxlength="100" required /></label><label>選項（每行一個）<textarea name="options" rows="5" required placeholder="選項一&#10;選項二"></textarea></label><button>發布投票</button></form></article>
+          <article class="panel"><h2>建立登記表單</h2><form id="form-form"><label>表單名稱<input name="title" maxlength="100" required /></label><label>說明<textarea name="description" rows="3" maxlength="500"></textarea></label><label>欄位（每行一個）<textarea name="fields" rows="4" required placeholder="姓名&#10;聯絡電話"></textarea></label><button>發布表單</button></form></article>
+        </div>
+        <section class="results"><h2>回覆概況</h2><div id="activity-list" class="activity-list">載入中…</div></section>
+      </section>
+    </main>
+    <script type="module" src="admin.js"></script>
+  </body>
+</html>

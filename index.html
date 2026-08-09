@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#244e78" />
+    <title>班級公佈欄｜校務互動平台</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">校務互動平台 <span>Class Hub</span></a>
+      <nav aria-label="主要導覽">
+        <a href="#announcements">公佈欄</a>
+        <a href="#polls">投票</a>
+        <a href="#forms">表單登記</a>
+        <a class="teacher-link" href="admin.html">級導師</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">班級資訊，一處完成</p>
+        <h1>公告、確認與回覆<br />不再錯過重要訊息</h1>
+        <p>閱讀公告後簽名確認、參與班級投票，以及完成各項登記表單。</p>
+        <span id="user-status" class="status">正在連線…</span>
+      </section>
+
+      <section id="announcements" class="content-section">
+        <div class="section-heading"><div><p class="eyebrow">NOTICE BOARD</p><h2>最新公告</h2></div><button id="refresh-announcements" class="text-button">重新整理</button></div>
+        <div id="announcements-list" class="card-grid" aria-live="polite"></div>
+      </section>
+
+      <section id="polls" class="content-section shaded">
+        <div class="section-heading"><div><p class="eyebrow">QUICK POLL</p><h2>班級投票</h2></div></div>
+        <div id="polls-list" class="card-grid" aria-live="polite"></div>
+      </section>
+
+      <section id="forms" class="content-section">
+        <div class="section-heading"><div><p class="eyebrow">REGISTRATION</p><h2>表單登記</h2></div></div>
+        <div id="forms-list" class="card-grid" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer>校務互動平台 · 有問題請聯絡級導師</footer>
+    <template id="empty-template"><p class="empty">目前尚無資料。</p></template>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
