@@ -39,9 +39,11 @@ async function renderCalendarAdminList() { const root=document.getElementById("c
 if (!configured) error.textContent = "尚未設定 Firebase，請先完成 firebase-config.js。";
 else {
   onAuthStateChanged(auth, async (user) => {
-    document.getElementById("login-panel").hidden = Boolean(user);
-    document.getElementById("dashboard").hidden = !user;
-    if (user) { document.getElementById("admin-email").textContent = user.email; renderActivity(); renderTeacherStatus(); renderCalendarAdminList(); }
+    const adminUser = user && !user.isAnonymous;
+    document.getElementById("login-panel").hidden = Boolean(adminUser);
+    document.getElementById("dashboard").hidden = !adminUser;
+    document.getElementById("admin-nav").hidden = !adminUser;
+    if (adminUser) { document.getElementById("admin-email").textContent = user.email; renderActivity(); renderTeacherStatus(); renderCalendarAdminList(); }
   });
   document.getElementById("login-form").onsubmit = async (event) => {
     event.preventDefault(); error.textContent = "";
