@@ -54,7 +54,7 @@ function renderAdminCalendar() {
       const key = calendarDate(year, month, day);
       if (key === todayKey) cell.classList.add("is-today");
       const events = adminCalendarEvents.filter((event) => event.date === key);
-      cell.innerHTML = `<time>${day}</time>${events.slice(0, 3).map((event) => `<span class="admin-calendar-event" title="${escapeHtml(event.title)}">${escapeHtml(event.startTime ? `${event.startTime} ${event.title}` : event.title)}</span>`).join("")}${events.length > 3 ? `<span class="more-events">另有 ${events.length - 3} 項</span>` : ""}`;
+      cell.innerHTML = `<time>${day}</time>${events.slice(0, 3).map((event) => `<span class="admin-calendar-event" title="${escapeHtml(event.title)}">${escapeHtml(event.title)}</span>`).join("")}${events.length > 3 ? `<span class="more-events">另有 ${events.length - 3} 項</span>` : ""}`;
       cell.querySelectorAll(".admin-calendar-event").forEach((node, index) => {
         node.tabIndex = 0;
         node.setAttribute("role", "button");
@@ -72,7 +72,7 @@ function openAdminEventEditor(event) {
   const dialog = document.createElement("dialog");
   dialog.className = "event-dialog admin-event-editor";
   dialog.style.cssText = "width:min(92vw,480px);padding:0;border:0;border-radius:16px;box-shadow:0 16px 42px #18324740;color:#163348";
-  dialog.innerHTML = `<form method="dialog" style="position:relative;display:grid;gap:.85rem;padding:1.35rem"><button class="dialog-close" type="button" aria-label="關閉" style="position:absolute;top:.65rem;right:.65rem;width:34px;min-height:34px;padding:0;border-radius:50%;background:#edf5f8;color:#185a87;font-size:1.45rem">×</button><p class="eyebrow">編輯年級行事曆</p><h2>修改事件</h2><label>事務名稱<input name="title" maxlength="80" required value="${escapeHtml(event.title)}" /></label><label>日期<input name="date" type="date" required value="${escapeHtml(event.date)}" /></label><label>時間（選填）<input name="startTime" type="time" value="${escapeHtml(event.startTime || "")}" /></label><label>說明（選填）<textarea name="description" rows="4" maxlength="300">${escapeHtml(event.description || "")}</textarea></label><button type="submit">儲存修改</button></form>`;
+  dialog.innerHTML = `<form method="dialog" style="position:relative;display:grid;gap:.85rem;padding:1.35rem"><button class="dialog-close" type="button" aria-label="關閉" style="position:absolute;top:.65rem;right:.65rem;width:34px;min-height:34px;padding:0;border-radius:50%;background:#edf5f8;color:#185a87;font-size:1.45rem">×</button><p class="eyebrow">編輯年級行事曆</p><h2>修改事件</h2><label>標題<input name="title" maxlength="80" required value="${escapeHtml(event.title)}" /></label><label>日期<input name="date" type="date" required value="${escapeHtml(event.date)}" /></label><label>時間（選填）<input name="startTime" type="time" value="${escapeHtml(event.startTime || "")}" /></label><label>說明（選填）<textarea name="description" rows="4" maxlength="300">${escapeHtml(event.description || "")}</textarea></label><button type="submit">儲存修改</button></form>`;
   document.body.append(dialog);
   dialog.querySelector(".dialog-close").onclick = () => dialog.close();
   dialog.onclose = () => dialog.remove();
@@ -109,7 +109,7 @@ function renderSchoolPreview() {
         <label>日期<input type="date" data-import-field="date" data-index="${index}" value="${escapeHtml(event.date)}" /></label>
         <label>時間<input type="time" data-import-field="startTime" data-index="${index}" value="${escapeHtml(event.startTime)}" /></label>
       </div>
-      <label>名稱<input data-import-field="title" data-index="${index}" maxlength="80" value="${escapeHtml(event.title)}" /></label>
+      <label>標題<input data-import-field="title" data-index="${index}" maxlength="80" value="${escapeHtml(event.title)}" /></label>
       <label>說明<textarea data-import-field="description" data-index="${index}" rows="2" maxlength="300">${escapeHtml(event.description)}</textarea></label>
     </article>`;
   }).join("") || "<p class=\"field-note\">這個月份沒有可匯入的行程。</p>";
