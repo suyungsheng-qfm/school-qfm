@@ -11,7 +11,11 @@
     <main class="admin-main">
       <section id="login-panel" class="auth-card">
         <p class="eyebrow">TEACHER PORTAL</p><h1>級導師管理</h1><p>請使用已授權的教師帳號登入。</p>
-        <form id="login-form"><label>電子信箱<input id="email" type="email" autocomplete="email" required /></label><label>密碼<input id="password" type="password" autocomplete="current-password" required /></label><button>登入</button><p id="login-error" class="error" role="alert"></p></form>
+        <form id="login-form">
+          <label>使用者名稱<input id="username" type="text" autocomplete="username" pattern="[A-Za-z0-9._-]+" title="可使用英文字母、數字、句點、底線與連字號" required /></label>
+          <label>密碼<input id="password" type="password" autocomplete="current-password" required /></label>
+          <button>登入</button><p class="field-note">系統會自動加上 @qfm.kh.edu.tw</p><p id="login-error" class="error" role="alert"></p>
+        </form>
       </section>
       <section id="dashboard" hidden>
         <div class="section-heading"><div><p class="eyebrow">TEACHER PORTAL</p><h1>管理中心</h1><p id="admin-email"></p></div><button id="sign-out" class="secondary">登出</button></div>
