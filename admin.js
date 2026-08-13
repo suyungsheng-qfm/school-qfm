@@ -10,6 +10,7 @@ let pendingSchoolEvents = [];
 let activityRefreshTimer = null;
 let adminCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let adminCalendarEvents = [];
+let pendingLottery = null;
 
 const error = document.getElementById("login-error");
 const schoolMessage = document.getElementById("school-calendar-message");
@@ -193,6 +194,73 @@ function shuffle(items) {
   return shuffled;
 }
 
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+function showLotteryStage() {
+  const stage = document.getElementById("lottery-stage");
+  const outputCount = pendingLottery.mode === "rank" ? pendingLottery.classes.length : pendingLottery.results.length;
+  document.getElementById("lottery-stage-heading").textContent = pendingLottery.title;
+  document.getElementById("lottery-stage-summary").textContent = `共 ${pendingLottery.classes.length} 個班級參與，本次${pendingLottery.mode === "rank" ? "將公布完整排序" : `抽出 ${outputCount} 個班級`}。`;
+  document.getElementById("lottery-stage-title").textContent = "抽籤準備完成";
+  document.getElementById("lottery-tumbler").textContent = "?";
+  document.getElementById("lottery-reveal-list").innerHTML = "";
+  document.getElementById("lottery-start").hidden = false;
+  document.getElementById("lottery-start").disabled = false;
+  document.getElementById("lottery-start").textContent = "開始抽籤";
+  document.getElementById("lottery-cancel").hidden = false;
+  stage.className = "lottery-stage";
+  stage.hidden = false;
+  stage.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+async function runLotteryAnimation() {
+  if (!pendingLottery) return;
+  const stage = document.getElementById("lottery-stage");
+  const start = document.getElementById("lottery-start");
+  const cancel = document.getElementById("lottery-cancel");
+  const title = document.getElementById("lottery-stage-title");
+  const tumbler = document.getElementById("lottery-tumbler");
+  const revealList = document.getElementById("lottery-reveal-list");
+  start.disabled = true;
+  cancel.hidden = true;
+  stage.className = "lottery-stage is-shuffling";
+  for (let seconds = 3; seconds >= 1; seconds -= 1) {
+    title.textContent = `打亂班級中… ${seconds}`;
+    tumbler.textContent = shuffle(pendingLottery.classes).slice(0, 4).join(" · ");
+    await wait(1000);
+  }
+  stage.className = "lottery-stage is-drawing";
+  title.textContent = pendingLottery.mode === "rank" ? "開始公布排序" : "開始公布結果";
+  for (let index = 0; index < pendingLottery.results.length; index += 1) {
+    const result = pendingLottery.results[index];
+    tumbler.textContent = result;
+    const item = document.createElement("li");
+    item.innerHTML = `<span>${pendingLottery.mode === "rank" ? `第 ${index + 1} 順位` : `第 ${index + 1} 個`}</span><strong>${escapeHtml(result)}</strong>`;
+    revealList.append(item);
+    await wait(1000);
+  }
+  try {
+    await addDoc(collection(db, "lotteries"), { ...pendingLottery, createdAt: serverTimestamp() });
+    stage.className = "lottery-stage is-finished";
+    title.textContent = "抽籤完成，結果已發布";
+    tumbler.textContent = "完成";
+    start.hidden = true;
+    cancel.hidden = false;
+    cancel.textContent = "進行下一次抽籤";
+    renderLotteryAdminList();
+  } catch (exception) {
+    stage.className = "lottery-stage";
+    title.textContent = "發布失敗";
+    tumbler.textContent = "!";
+    start.disabled = false;
+    start.textContent = "重新發布抽籤結果";
+    cancel.hidden = false;
+    alert(`發布失敗：${exception.message}`);
+    return;
+  }
+  pendingLottery = null;
+}
+
 async function renderLotteryAdminList() {
   const root = document.getElementById("lottery-admin-list");
   const snapshot = await getDocs(query(collection(db, "lotteries"), orderBy("createdAt", "desc")));
@@ -314,16 +382,16 @@ if (!configured) {
     const mode = data.get("mode");
     const count = Math.min(Number(data.get("count")), classes.length);
     const results = shuffle(classes).slice(0, mode === "rank" ? classes.length : count);
-    try {
-      await addDoc(collection(db, "lotteries"), { title: data.get("title").trim(), source, classes, mode, results, createdAt: serverTimestamp() });
-      event.target.reset();
-      document.getElementById("lottery-custom-wrap").hidden = true;
-      document.getElementById("lottery-count-wrap").hidden = false;
-      renderLotteryAdminList();
-      alert("抽籤結果已發布。");
-    } catch (exception) {
-      alert(`發布失敗：${exception.message}`);
-    }
+    pendingLottery = { title: data.get("title").trim(), source, classes, mode, results };
+    showLotteryStage();
+  };
+  document.getElementById("lottery-start").onclick = runLotteryAnimation;
+  document.getElementById("lottery-cancel").onclick = () => {
+    pendingLottery = null;
+    document.getElementById("lottery-stage").hidden = true;
+    document.getElementById("lottery-form").reset();
+    document.getElementById("lottery-custom-wrap").hidden = true;
+    document.getElementById("lottery-count-wrap").hidden = false;
   };
   document.getElementById("calendar-event-form").onsubmit = async (event) => { event.preventDefault(); const data = new FormData(event.target); await publish("calendarEvents", { title: data.get("title"), date: data.get("date"), startTime: data.get("startTime"), description: data.get("description") }, event.target); renderCalendarAdminList(); };
   document.getElementById("read-school-calendar").onclick = readSchoolCalendar;
