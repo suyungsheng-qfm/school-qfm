@@ -10,7 +10,6 @@ let pendingSchoolEvents = [];
 let activityRefreshTimer = null;
 let adminCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let adminCalendarEvents = [];
-let pendingLottery = null;
 
 const error = document.getElementById("login-error");
 const schoolMessage = document.getElementById("school-calendar-message");
@@ -384,16 +383,8 @@ if (!configured) {
     const mode = data.get("mode");
     const count = Math.min(Number(data.get("count")), classes.length);
     const results = shuffle(classes).slice(0, mode === "rank" ? classes.length : count);
-    pendingLottery = { title: data.get("title").trim(), source, classes, mode, results };
-    showLotteryStage();
-  };
-  document.getElementById("lottery-start").onclick = runLotteryAnimation;
-  document.getElementById("lottery-cancel").onclick = () => {
-    pendingLottery = null;
-    document.getElementById("lottery-stage").hidden = true;
-    document.getElementById("lottery-form").reset();
-    document.getElementById("lottery-custom-wrap").hidden = true;
-    document.getElementById("lottery-count-wrap").hidden = false;
+    sessionStorage.setItem("pendingLotteryDraw", JSON.stringify({ title: data.get("title").trim(), source, classes, mode, results }));
+    location.href = "lottery-draw.html";
   };
   document.getElementById("calendar-event-form").onsubmit = async (event) => { event.preventDefault(); const data = new FormData(event.target); await publish("calendarEvents", { title: data.get("title"), date: data.get("date"), startTime: data.get("startTime"), description: data.get("description") }, event.target); renderCalendarAdminList(); };
   document.getElementById("read-school-calendar").onclick = readSchoolCalendar;

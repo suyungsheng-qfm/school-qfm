@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#185a87" />
+    <title>公開抽籤｜115 八導 公佈網</title>
+    <link rel="stylesheet" href="lottery-draw.css" />
+  </head>
+  <body class="draw-body">
+    <main class="draw-main">
+      <section id="draw-card" class="draw-card" aria-live="polite">
+        <p id="draw-state" class="draw-eyebrow">公開班級抽籤</p>
+        <h1 id="draw-title">準備抽籤</h1>
+        <p id="draw-summary" class="draw-summary"></p>
+        <div id="draw-tumbler" class="draw-tumbler">?</div>
+        <ol id="draw-results" class="draw-results"></ol>
+        <button id="draw-start" type="button">開始抽籤</button>
+        <button id="draw-back" type="button" class="draw-secondary">返回管理端</button>
+      </section>
+    </main>
+    <script type="module" src="lottery-draw.js"></script>
+  </body>
+</html>
