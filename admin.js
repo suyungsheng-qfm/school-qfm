@@ -370,8 +370,8 @@ if (!configured) {
   document.getElementById("announcement-form").onsubmit = (event) => { event.preventDefault(); const data = new FormData(event.target); publish("announcements", { title: data.get("title"), body: data.get("body"), requiresSignature: data.has("requiresSignature") }, event.target); };
   document.getElementById("poll-form").onsubmit = (event) => { event.preventDefault(); const data = new FormData(event.target); const options = lines(data.get("options")); if (options.length < 2) return alert("請至少輸入兩個投票選項。"); publish("polls", { question: data.get("question"), options, counts: Object.fromEntries(options.map((_, index) => [index, 0])) }, event.target); };
   document.getElementById("form-form").onsubmit = (event) => { event.preventDefault(); const data = new FormData(event.target); const fields = lines(data.get("fields")); if (!fields.length) return alert("請至少輸入一個登記欄位。"); publish("forms", { title: data.get("title"), description: data.get("description"), fields }, event.target); };
-  document.getElementById("lottery-source").onchange = (event) => { document.getElementById("lottery-custom-wrap").hidden = event.target.value !== "custom"; };
-  document.querySelector("#lottery-form select[name='mode']").onchange = (event) => { document.getElementById("lottery-count-wrap").hidden = event.target.value === "rank"; };
+  document.querySelectorAll("#lottery-form input[name='source']").forEach((input) => { input.onchange = (event) => { document.getElementById("lottery-custom-wrap").hidden = event.target.value !== "custom"; }; });
+  document.querySelectorAll("#lottery-form input[name='mode']").forEach((input) => { input.onchange = (event) => { document.getElementById("lottery-count-wrap").hidden = event.target.value === "rank"; }; });
   document.getElementById("lottery-form").onsubmit = async (event) => {
     event.preventDefault();
     const data = new FormData(event.target);
