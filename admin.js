@@ -202,7 +202,9 @@ function showLotteryStage() {
   document.getElementById("lottery-stage-heading").textContent = pendingLottery.title;
   document.getElementById("lottery-stage-summary").textContent = `共 ${pendingLottery.classes.length} 個班級參與，本次${pendingLottery.mode === "rank" ? "將公布完整排序" : `抽出 ${outputCount} 個班級`}。`;
   document.getElementById("lottery-stage-title").textContent = "抽籤準備完成";
-  document.getElementById("lottery-tumbler").textContent = "?";
+  const tumbler = document.getElementById("lottery-tumbler");
+  tumbler.className = `lottery-tumbler${pendingLottery.classes.length > 4 ? " has-many-classes" : ""}`;
+  tumbler.textContent = "?";
   document.getElementById("lottery-reveal-list").innerHTML = "";
   document.getElementById("lottery-start").hidden = false;
   document.getElementById("lottery-start").disabled = false;
@@ -226,7 +228,7 @@ async function runLotteryAnimation() {
   stage.className = "lottery-stage is-shuffling";
   for (let seconds = 3; seconds >= 1; seconds -= 1) {
     title.textContent = `打亂班級中… ${seconds}`;
-    tumbler.textContent = shuffle(pendingLottery.classes).slice(0, 4).join(" · ");
+    tumbler.textContent = shuffle(pendingLottery.classes).join(" · ");
     await wait(1000);
   }
   stage.className = "lottery-stage is-drawing";
