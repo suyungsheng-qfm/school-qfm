@@ -308,10 +308,9 @@ if (!configured) {
     event.preventDefault();
     const data = new FormData(event.target);
     const source = data.get("source");
-    const customClasses = String(data.get("customClasses") || "").split(/[\s,，]+/).map((code) => code.trim()).filter(Boolean);
-    const classes = source === "all" ? TEACHER_CODES : [...new Set(customClasses.filter((code) => TEACHER_CODES.includes(code)))];
-    if (!classes.length) return alert("請至少輸入一個有效的班級代碼（801～812）。");
-    if (source === "custom" && classes.length !== customClasses.length) return alert("自訂班級只能使用 801～812，請檢查輸入內容。");
+    const customClasses = data.getAll("customClasses");
+    const classes = source === "all" ? TEACHER_CODES : customClasses.filter((code) => TEACHER_CODES.includes(code));
+    if (!classes.length) return alert("請至少勾選一個參與班級。");
     const mode = data.get("mode");
     const count = Math.min(Number(data.get("count")), classes.length);
     const results = shuffle(classes).slice(0, mode === "rank" ? classes.length : count);
