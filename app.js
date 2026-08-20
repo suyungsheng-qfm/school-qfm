@@ -7,7 +7,7 @@ const list = (id) => document.getElementById(id);
 const empty = () => document.getElementById("empty-template").content.cloneNode(true);
 const escapeHtml = (text = "") => String(text).replace(/[&<>'"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" }[c]));
 const dateText = (timestamp) => timestamp?.toDate ? timestamp.toDate().toLocaleDateString("zh-TW") : "剛剛";
-const isHolidayEvent = (event) => /放假|補假|休業|國定假日|春節|元旦|和平紀念|兒童節|清明|勞動節|端午|中秋|國慶/.test(event.title || "");
+const isHolidayEvent = (event) => /放假|補假|國定假日|春節|元旦|和平紀念|兒童節|清明|勞動節|端午|中秋|國慶/.test(event.title || "");
 let currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let calendarEvents = [];
 

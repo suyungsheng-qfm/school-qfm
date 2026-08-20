@@ -18,7 +18,7 @@ const schoolMonth = document.getElementById("school-import-month");
 const schoolList = document.getElementById("school-import-list");
 const lines = (value) => value.split("\n").map((item) => item.trim()).filter(Boolean);
 const escapeHtml = (text = "") => String(text).replace(/[&<'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
-const isHolidayEvent = (event) => /放假|補假|休業|國定假日|春節|元旦|和平紀念|兒童節|清明|勞動節|端午|中秋|國慶/.test(event.title || "");
+const isHolidayEvent = (event) => /放假|補假|國定假日|春節|元旦|和平紀念|兒童節|清明|勞動節|端午|中秋|國慶/.test(event.title || "");
 
 function eventDateTime(value) {
   if (value?.date) return { date: value.date, startTime: "" };
