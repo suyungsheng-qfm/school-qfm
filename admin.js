@@ -173,7 +173,14 @@ async function renderCalendarAdminList() {
   const events = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).sort((a, b) => `${a.date}${a.startTime || ""}`.localeCompare(`${b.date}${b.startTime || ""}`));
   adminCalendarEvents = events;
   renderAdminCalendar();
-  root.innerHTML = events.length ? `<h3>已發布事件</h3><ul>${events.slice(0, 30).map((event) => `<li><span><strong>${escapeHtml(event.date)}</strong> ${escapeHtml(event.title)}</span><button data-delete-event="${event.id}" class="secondary">刪除</button></li>`).join("")}</ul>` : "<p class=\"field-note\">尚未建立行事曆事件。</p>";
+  renderCalendarAdminItems();
+}
+
+function renderCalendarAdminItems() {
+  const root = document.getElementById("calendar-admin-list");
+  const monthKey = `${adminCurrentMonth.getFullYear()}-${String(adminCurrentMonth.getMonth() + 1).padStart(2, "0")}`;
+  const monthEvents = adminCalendarEvents.filter((event) => event.date?.startsWith(monthKey));
+  root.innerHTML = monthEvents.length ? `<h3>${monthKey.replace("-", " 年 ")} 月已發布事件</h3><ul>${monthEvents.map((event) => `<li><span><strong>${escapeHtml(event.date)}</strong> ${escapeHtml(event.title)}</span><button data-delete-event="${event.id}" class="secondary">刪除</button></li>`).join("")}</ul>` : `<p class="field-note">${monthKey.replace("-", " 年 ")} 月尚未建立行事曆事件。</p>`;
   root.querySelectorAll("[data-delete-event]").forEach((button) => {
     button.onclick = async () => {
       if (confirm("確定刪除此行事曆事件？")) {
@@ -390,9 +397,9 @@ if (!configured) {
   document.getElementById("read-school-calendar").onclick = readSchoolCalendar;
   document.getElementById("confirm-school-import").onclick = importSchoolMonth;
   schoolMonth.onchange = renderSchoolPreview;
-  document.getElementById("admin-calendar-prev").onclick = () => { adminCurrentMonth = new Date(adminCurrentMonth.getFullYear(), adminCurrentMonth.getMonth() - 1, 1); renderAdminCalendar(); };
-  document.getElementById("admin-calendar-next").onclick = () => { adminCurrentMonth = new Date(adminCurrentMonth.getFullYear(), adminCurrentMonth.getMonth() + 1, 1); renderAdminCalendar(); };
-  document.getElementById("admin-calendar-today").onclick = () => { adminCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); renderAdminCalendar(); };
+  document.getElementById("admin-calendar-prev").onclick = () => { adminCurrentMonth = new Date(adminCurrentMonth.getFullYear(), adminCurrentMonth.getMonth() - 1, 1); renderAdminCalendar(); renderCalendarAdminItems(); };
+  document.getElementById("admin-calendar-next").onclick = () => { adminCurrentMonth = new Date(adminCurrentMonth.getFullYear(), adminCurrentMonth.getMonth() + 1, 1); renderAdminCalendar(); renderCalendarAdminItems(); };
+  document.getElementById("admin-calendar-today").onclick = () => { adminCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); renderAdminCalendar(); renderCalendarAdminItems(); };
   document.querySelectorAll("[data-admin-nav]").forEach((link) => { link.onclick = (event) => { event.preventDefault(); chooseAdminPage(link.dataset.adminNav); }; });
   document.getElementById("reset-teacher-form").onsubmit = async (event) => {
     event.preventDefault();
