@@ -8,6 +8,7 @@ const empty = () => document.getElementById("empty-template").content.cloneNode(
 const escapeHtml = (text = "") => String(text).replace(/[&<>'"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" }[c]));
 const dateText = (timestamp) => timestamp?.toDate ? timestamp.toDate().toLocaleDateString("zh-TW") : "剛剛";
 const isHolidayEvent = (event) => /放假|補假|國定假日|春節|元旦|和平紀念|兒童節|清明|勞動節|端午|中秋|國慶/.test(event.title || "");
+const eventColorClass = (event) => ` event-color-${["blue", "teal", "green", "purple", "amber", "slate"].includes(event.color) ? event.color : "blue"}`;
 let currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let calendarEvents = [];
 
@@ -37,7 +38,7 @@ function renderCalendar() {
     const dayEvents = calendarEvents.filter((event) => event.date === key);
     if (new Date(year, month, date).getDay() === 0 || new Date(year, month, date).getDay() === 6 || dayEvents.some(isHolidayEvent)) cell.classList.add("is-holiday");
     const events = dayEvents.slice(0, 3);
-    cell.innerHTML = `<time datetime="${key}">${date}</time>${events.map((event) => `<button class="calendar-event${isHolidayEvent(event) ? " is-holiday-event" : ""}" title="${escapeHtml(event.description || event.title)}">${escapeHtml(event.title)}</button>`).join("")}${dayEvents.length > 3 ? '<span class="more-events">更多…</span>' : ""}`;
+    cell.innerHTML = `<time datetime="${key}">${date}</time>${events.map((event) => `<button class="calendar-event${eventColorClass(event)}${isHolidayEvent(event) ? " is-holiday-event" : ""}" title="${escapeHtml(event.description || event.title)}">${escapeHtml(event.title)}</button>`).join("")}${dayEvents.length > 3 ? '<span class="more-events">更多…</span>' : ""}`;
     cell.querySelectorAll(".calendar-event").forEach((button, index) => { button.onclick = () => showEventDetails(events[index]); });
     grid.append(cell);
   }

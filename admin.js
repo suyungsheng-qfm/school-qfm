@@ -19,6 +19,9 @@ const schoolList = document.getElementById("school-import-list");
 const lines = (value) => value.split("\n").map((item) => item.trim()).filter(Boolean);
 const escapeHtml = (text = "") => String(text).replace(/[&<'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
 const isHolidayEvent = (event) => /放假|補假|國定假日|春節|元旦|和平紀念|兒童節|清明|勞動節|端午|中秋|國慶/.test(event.title || "");
+const EVENT_COLORS = [["blue", "預設藍"], ["teal", "青綠"], ["green", "綠色"], ["purple", "紫色"], ["amber", "琥珀"], ["slate", "灰藍"]];
+const eventColorClass = (event) => ` event-color-${EVENT_COLORS.some(([color]) => color === event.color) ? event.color : "blue"}`;
+const colorOptions = (selected = "blue") => EVENT_COLORS.map(([color, label]) => `<option value="${color}" ${color === selected ? "selected" : ""}>${label}</option>`).join("");
 
 function eventDateTime(value) {
   if (value?.date) return { date: value.date, startTime: "" };
@@ -56,7 +59,7 @@ function renderAdminCalendar() {
       if (key === todayKey) cell.classList.add("is-today");
       const events = adminCalendarEvents.filter((event) => event.date === key);
       if (new Date(year, month, day).getDay() === 0 || new Date(year, month, day).getDay() === 6 || events.some(isHolidayEvent)) cell.classList.add("is-holiday");
-      cell.innerHTML = `<time>${day}</time>${events.slice(0, 3).map((event) => `<span class="admin-calendar-event${isHolidayEvent(event) ? " is-holiday-event" : ""}" title="${escapeHtml(event.title)}">${escapeHtml(event.title)}</span>`).join("")}${events.length > 3 ? `<span class="more-events">另有 ${events.length - 3} 項</span>` : ""}`;
+      cell.innerHTML = `<time>${day}</time>${events.slice(0, 3).map((event) => `<span class="admin-calendar-event${eventColorClass(event)}${isHolidayEvent(event) ? " is-holiday-event" : ""}" title="${escapeHtml(event.title)}">${escapeHtml(event.title)}</span>`).join("")}${events.length > 3 ? `<span class="more-events">另有 ${events.length - 3} 項</span>` : ""}`;
       cell.querySelectorAll(".admin-calendar-event").forEach((node, index) => {
         node.tabIndex = 0;
         node.setAttribute("role", "button");
@@ -74,7 +77,7 @@ function openAdminEventEditor(event) {
   const dialog = document.createElement("dialog");
   dialog.className = "event-dialog admin-event-editor";
   dialog.style.cssText = "width:min(92vw,480px);padding:0;border:0;border-radius:16px;box-shadow:0 16px 42px #18324740;color:#163348";
-  dialog.innerHTML = `<form method="dialog" style="position:relative;display:grid;gap:.85rem;padding:1.35rem"><button class="dialog-close" type="button" aria-label="關閉" style="position:absolute;top:.65rem;right:.65rem;width:34px;min-height:34px;padding:0;border-radius:50%;background:#edf5f8;color:#185a87;font-size:1.45rem">×</button><p class="eyebrow">編輯年級行事曆</p><h2>修改事件</h2><label>標題<input name="title" maxlength="80" required value="${escapeHtml(event.title)}" /></label><label>日期<input name="date" type="date" required value="${escapeHtml(event.date)}" /></label><label>時間（選填）<input name="startTime" type="time" value="${escapeHtml(event.startTime || "")}" /></label><label>說明（選填）<textarea name="description" rows="4" maxlength="300">${escapeHtml(event.description || "")}</textarea></label><button type="submit">儲存修改</button></form>`;
+  dialog.innerHTML = `<form method="dialog" style="position:relative;display:grid;gap:.85rem;padding:1.35rem"><button class="dialog-close" type="button" aria-label="關閉" style="position:absolute;top:.65rem;right:.65rem;width:34px;min-height:34px;padding:0;border-radius:50%;background:#edf5f8;color:#185a87;font-size:1.45rem">×</button><p class="eyebrow">編輯年級行事曆</p><h2>修改事件</h2><label>標題<input name="title" maxlength="80" required value="${escapeHtml(event.title)}" /></label><label>日期<input name="date" type="date" required value="${escapeHtml(event.date)}" /></label><label>時間（選填）<input name="startTime" type="time" value="${escapeHtml(event.startTime || "")}" /></label><label>說明（選填）<textarea name="description" rows="4" maxlength="300">${escapeHtml(event.description || "")}</textarea></label><label>底色<select name="color">${colorOptions(event.color)}</select></label><button type="submit">儲存修改</button></form>`;
   document.body.append(dialog);
   dialog.querySelector(".dialog-close").onclick = () => dialog.close();
   dialog.onclose = () => dialog.remove();
@@ -83,7 +86,7 @@ function openAdminEventEditor(event) {
     submit.preventDefault();
     const data = new FormData(submit.currentTarget);
     try {
-      await updateDoc(doc(db, "calendarEvents", event.id), { title: data.get("title").trim(), date: data.get("date"), startTime: data.get("startTime"), description: data.get("description").trim(), updatedAt: serverTimestamp() });
+      await updateDoc(doc(db, "calendarEvents", event.id), { title: data.get("title").trim(), date: data.get("date"), startTime: data.get("startTime"), description: data.get("description").trim(), color: data.get("color"), updatedAt: serverTimestamp() });
       dialog.close();
       renderCalendarAdminList();
     } catch (exception) {
@@ -113,6 +116,7 @@ function renderSchoolPreview() {
       </div>
       <label>標題<input data-import-field="title" data-index="${index}" maxlength="80" value="${escapeHtml(event.title)}" /></label>
       <label>說明<textarea data-import-field="description" data-index="${index}" rows="2" maxlength="300">${escapeHtml(event.description)}</textarea></label>
+      <label>底色<select data-import-field="color" data-index="${index}">${colorOptions(event.color)}</select></label>
     </article>`;
   }).join("") || "<p class=\"field-note\">這個月份沒有可匯入的行程。</p>";
   schoolPreview.hidden = false;
@@ -307,7 +311,7 @@ async function readSchoolCalendar() {
     const payload = await response.json();
     pendingSchoolEvents = (payload.items || []).filter((item) => item.status !== "cancelled").map((item) => {
       const start = eventDateTime(item.start);
-      return start && { ...start, sourceMonth: start.date.slice(0, 7), title: item.summary || "未命名行程", description: item.description || "", selected: true };
+      return start && { ...start, sourceMonth: start.date.slice(0, 7), title: item.summary || "未命名行程", description: item.description || "", color: "blue", selected: true };
     }).filter(Boolean);
     if (!pendingSchoolEvents.length) {
       schoolMessage.textContent = `讀取完成，但 ${monthLabel} 沒有可匯入的學校行程。`;
@@ -395,7 +399,9 @@ if (!configured) {
     sessionStorage.setItem("pendingLotteryDraw", JSON.stringify({ title: data.get("title").trim(), source, classes, mode, results }));
     location.href = "lottery-draw.html";
   };
-  document.getElementById("calendar-event-form").onsubmit = async (event) => { event.preventDefault(); const data = new FormData(event.target); await publish("calendarEvents", { title: data.get("title"), date: data.get("date"), startTime: data.get("startTime"), description: data.get("description") }, event.target); renderCalendarAdminList(); };
+  const calendarForm = document.getElementById("calendar-event-form");
+  calendarForm.querySelector("label:last-of-type").insertAdjacentHTML("afterend", `<label>底色<select name="color">${colorOptions()}</select></label>`);
+  calendarForm.onsubmit = async (event) => { event.preventDefault(); const data = new FormData(event.target); await publish("calendarEvents", { title: data.get("title"), date: data.get("date"), startTime: data.get("startTime"), description: data.get("description"), color: data.get("color") || "blue" }, event.target); renderCalendarAdminList(); };
   document.getElementById("read-school-calendar").onclick = readSchoolCalendar;
   document.getElementById("confirm-school-import").onclick = importSchoolMonth;
   schoolMonth.onchange = renderSchoolPreview;
