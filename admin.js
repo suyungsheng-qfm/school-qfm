@@ -18,6 +18,7 @@ const schoolMonth = document.getElementById("school-import-month");
 const schoolList = document.getElementById("school-import-list");
 const lines = (value) => value.split("\n").map((item) => item.trim()).filter(Boolean);
 const escapeHtml = (text = "") => String(text).replace(/[&<'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
+const isHolidayEvent = (event) => /放假|補假|休業|國定假日|春節|元旦|和平紀念|兒童節|清明|勞動節|端午|中秋|國慶/.test(event.title || "");
 
 function eventDateTime(value) {
   if (value?.date) return { date: value.date, startTime: "" };
@@ -54,7 +55,8 @@ function renderAdminCalendar() {
       const key = calendarDate(year, month, day);
       if (key === todayKey) cell.classList.add("is-today");
       const events = adminCalendarEvents.filter((event) => event.date === key);
-      cell.innerHTML = `<time>${day}</time>${events.slice(0, 3).map((event) => `<span class="admin-calendar-event" title="${escapeHtml(event.title)}">${escapeHtml(event.title)}</span>`).join("")}${events.length > 3 ? `<span class="more-events">另有 ${events.length - 3} 項</span>` : ""}`;
+      if (new Date(year, month, day).getDay() === 0 || new Date(year, month, day).getDay() === 6 || events.some(isHolidayEvent)) cell.classList.add("is-holiday");
+      cell.innerHTML = `<time>${day}</time>${events.slice(0, 3).map((event) => `<span class="admin-calendar-event${isHolidayEvent(event) ? " is-holiday-event" : ""}" title="${escapeHtml(event.title)}">${escapeHtml(event.title)}</span>`).join("")}${events.length > 3 ? `<span class="more-events">另有 ${events.length - 3} 項</span>` : ""}`;
       cell.querySelectorAll(".admin-calendar-event").forEach((node, index) => {
         node.tabIndex = 0;
         node.setAttribute("role", "button");
