@@ -197,7 +197,7 @@ async function renderClassAffairsStatistics() {
     const recordsByClass = new Map(snapshot.docs.map((item) => [item.id, normalizedClassAffairsGroups(item.data())[target.id]?.records || []]));
     const counts = TEACHER_CODES.map((code) => [code, recordsByClass.get(code)?.length || 0]);
     const total = counts.reduce((sum, [, count]) => sum + count, 0);
-    root.innerHTML = `<h3>班級人數統計</h3><p class="field-note">統計來源：資料組「${escapeHtml(target.name)}」</p><div class="class-statistics-grid">${counts.map(([code, count]) => `<span><strong>${code}</strong><b>${count}</b> 人</span>`).join("")}</div><p class="class-statistics-total">年級總人數 <strong>${total}</strong> 人</p>`;
+    root.innerHTML = `<h3>班級人數統計</h3><p class="field-note">統計來源：資料組「${escapeHtml(target.name)}」</p><div class="class-statistics-grid">${counts.map(([code, count]) => `<span><strong>${code}</strong><b>${count} 人</b></span>`).join("")}</div><p class="class-statistics-total">年級總人數 <strong>${total}</strong> 人</p>`;
   } catch (exception) { root.innerHTML = `<h3>班級人數統計</h3><p class="field-note">統計讀取失敗：${escapeHtml(exception.message)}</p>`; }
 }
 function resetClassAffairsRecordForm() { editingClassAffairRecordId = null; document.getElementById("class-affairs-record-form").reset(); document.getElementById("class-affairs-record-submit").textContent = "新增資料"; document.getElementById("class-affairs-record-cancel").hidden = true; renderClassAffairsRecordFields(); }
