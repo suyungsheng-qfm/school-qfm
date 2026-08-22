@@ -220,7 +220,7 @@ async function renderClassAffairsAdmin() {
     renderClassAffairsDatasetList(); renderClassAffairsRecordFields(); renderClassAffairsRecordList();
   } catch (exception) { root.innerHTML = `<p class="field-note">讀取失敗：${escapeHtml(exception.message)}</p>`; }
 }
-function parseClassAffairsRows(text) { const delimiter = text.includes("\t") ? "\t" : ","; const rows = [[]]; let value = "", quoted = false; for (let index = 0; index < text.length; index += 1) { const character = text[index]; if (character === '"') { if (quoted && text[index + 1] === '"') { value += '"'; index += 1; } else quoted = !quoted; } else if (!quoted && character === delimiter) { rows.at(-1).push(value.trim()); value = ""; } else if (!quoted && (character === "\n" || character === "\r")) { if (character === "\r" && text[index + 1] === "\n") index += 1; rows.at(-1).push(value.trim()); value = ""; rows.push([]); } else value += character; } rows.at(-1).push(value.trim()); return rows.filter((row) => row.some(Boolean)); }
+function parseClassAffairsRows(text) { const delimiter = text.includes("\t") ? "\t" : text.includes(",") ? "," : null; if (!delimiter) return text.split(/\r?\n/).map((line) => line.trim().split(/\s+/).filter(Boolean)).filter((row) => row.length); const rows = [[]]; let value = "", quoted = false; for (let index = 0; index < text.length; index += 1) { const character = text[index]; if (character === '"') { if (quoted && text[index + 1] === '"') { value += '"'; index += 1; } else quoted = !quoted; } else if (!quoted && character === delimiter) { rows.at(-1).push(value.trim()); value = ""; } else if (!quoted && (character === "\n" || character === "\r")) { if (character === "\r" && text[index + 1] === "\n") index += 1; rows.at(-1).push(value.trim()); value = ""; rows.push([]); } else value += character; } rows.at(-1).push(value.trim()); return rows.filter((row) => row.some(Boolean)); }
 
 async function renderCalendarAdminList() {
   const root = document.getElementById("calendar-admin-list");
@@ -492,7 +492,7 @@ if (!configured) {
   document.getElementById("class-affairs-batch-import").onclick = async () => {
     const dataset = activeClassAffairsDataset(); const message = document.getElementById("class-affairs-message"); const rows = parseClassAffairsRows(document.getElementById("class-affairs-batch-data").value);
     if (!dataset || rows.length < 2) { message.textContent = "請提供包含標題列與至少一筆資料的 CSV 或 Excel 資料。"; return; }
-    const header = rows.shift(); const positions = dataset.fields.map((field) => header.indexOf(field));
+    let header = rows.shift(); if (header.join(" ") === dataset.fields.join(" ")) header = [...dataset.fields]; const positions = dataset.fields.map((field) => header.indexOf(field));
     if (positions.some((position) => position < 0)) { message.textContent = `標題列需包含：${dataset.fields.join("、")}`; return; }
     const records = rows.map((row) => ({ id: classAffairId(), values: Object.fromEntries(dataset.fields.map((field, index) => [field, row[positions[index]] || ""])) })).filter((record) => Object.values(record.values).some(Boolean));
     if (!records.length) { message.textContent = "找不到可匯入的資料。"; return; }
