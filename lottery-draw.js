@@ -51,10 +51,11 @@ start.onclick = async () => {
     await wait(1000);
   }
   try {
-    await addDoc(collection(db, "lotteries"), { ...drawData, createdAt: serverTimestamp() });
+    const resultLines = drawData.results.map((code, index) => `${drawData.mode === "rank" ? `${index + 1}. ` : `第 ${index + 1} 個：`}${code}`);
+    await addDoc(collection(db, "announcements"), { title: `【抽籤結果】${drawData.title}`, body: `參與班級：${drawData.classes.join("、")}\n\n抽籤結果：\n${resultLines.join("\n")}`, requiresSignature: false, lotteryResult: true, createdAt: serverTimestamp() });
     sessionStorage.removeItem("pendingLotteryDraw");
     card.className = "draw-card is-finished";
-    state.textContent = "抽籤完成，結果已發布";
+    state.textContent = "抽籤完成，結果已發布至公告";
     tumbler.textContent = "完成";
     start.hidden = true;
     back.hidden = false;

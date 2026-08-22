@@ -359,7 +359,6 @@ if (!configured) {
       if (!activityRefreshTimer) activityRefreshTimer = setInterval(renderActivity, 30000);
       renderTeacherStatus();
       renderCalendarAdminList();
-      renderLotteryAdminList();
     } else if (activityRefreshTimer) {
       clearInterval(activityRefreshTimer);
       activityRefreshTimer = null;
