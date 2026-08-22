@@ -491,9 +491,10 @@ if (!configured) {
   document.getElementById("class-affairs-batch-file").onchange = async (event) => { const file = event.target.files?.[0]; if (file) document.getElementById("class-affairs-batch-data").value = await file.text(); };
   document.getElementById("class-affairs-batch-import").onclick = async () => {
     const dataset = activeClassAffairsDataset(); const message = document.getElementById("class-affairs-message"); const rows = parseClassAffairsRows(document.getElementById("class-affairs-batch-data").value);
-    if (!dataset || rows.length < 2) { message.textContent = "請提供包含標題列與至少一筆資料的 CSV 或 Excel 資料。"; return; }
-    let header = rows.shift(); if (header.join(" ") === dataset.fields.join(" ")) header = [...dataset.fields]; const positions = dataset.fields.map((field) => header.indexOf(field));
-    if (positions.some((position) => position < 0)) { message.textContent = `標題列需包含：${dataset.fields.join("、")}`; return; }
+    if (!dataset || !rows.length) { message.textContent = "請貼上或選擇至少一筆資料。"; return; }
+    let header = rows[0]; if (header.join(" ") === dataset.fields.join(" ")) header = [...dataset.fields]; let positions = dataset.fields.map((field) => header.indexOf(field));
+    const hasHeader = positions.every((position) => position >= 0);
+    if (hasHeader) rows.shift(); else { const looksLikeHeader = dataset.fields.some((field) => header.includes(field)); if (looksLikeHeader) { message.textContent = `標題列需包含：${dataset.fields.join("、")}`; return; } positions = dataset.fields.map((_, index) => index); }
     const records = rows.map((row) => ({ id: classAffairId(), values: Object.fromEntries(dataset.fields.map((field, index) => [field, row[positions[index]] || ""])) })).filter((record) => Object.values(record.values).some(Boolean));
     if (!records.length) { message.textContent = "找不到可匯入的資料。"; return; }
     const code = document.getElementById("class-affairs-code").value; const groups = { ...classAffairsGroups, [dataset.id]: { records: [...datasetRecords(dataset.id), ...records] } };
