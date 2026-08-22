@@ -1,7 +1,7 @@
 import { auth, configured, db } from "./firebase.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { addDoc, collection, deleteDoc, doc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const ACCOUNT_DOMAIN = "@qfm.kh.edu.tw";
 const SCHOOL_CALENDAR_ID = "qisho218odg6vcgd3up3dpp6qg@group.calendar.google.com";
@@ -10,6 +10,8 @@ let pendingSchoolEvents = [];
 let activityRefreshTimer = null;
 let adminCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let adminCalendarEvents = [];
+let classAffairsStudents = [];
+let editingClassAffairId = null;
 
 const error = document.getElementById("login-error");
 const schoolMessage = document.getElementById("school-calendar-message");
@@ -171,6 +173,22 @@ async function renderTeacherStatus() {
     const isSet = Boolean(credentials.get(code)?.pinHash);
     return `<li><span>${code}</span><strong class="${isSet ? "is-set" : "is-empty"}">${isSet ? "已設定" : "未設定"}</strong></li>`;
   }).join("")}</ul>`;
+}
+
+function classAffairId() { return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`; }
+function sortClassAffairs(students) { return [...students].sort((a, b) => Number(a.seatNumber) - Number(b.seatNumber) || String(a.name).localeCompare(String(b.name), "zh-Hant")); }
+function resetClassAffairsForm() { editingClassAffairId = null; const form = document.getElementById("class-affairs-form"); form.reset(); document.getElementById("class-affairs-submit").textContent = "新增資料"; document.getElementById("class-affairs-cancel").hidden = true; }
+async function renderClassAffairsAdmin() {
+  const code = document.getElementById("class-affairs-code").value;
+  const root = document.getElementById("class-affairs-admin-list");
+  root.textContent = "載入中…";
+  try {
+    const snapshot = await getDoc(doc(db, "classAffairs", code));
+    classAffairsStudents = sortClassAffairs(snapshot.exists() ? (snapshot.data().students || []) : []);
+    root.innerHTML = classAffairsStudents.length ? `<h3>${code} 班名冊</h3><ul>${classAffairsStudents.map((student) => `<li><span><strong>${escapeHtml(student.seatNumber)} 號 ${escapeHtml(student.name)}</strong><small>OpenID 帳號：${escapeHtml(student.openId)}</small></span><span><button class="secondary" data-edit-class-affair="${escapeHtml(student.id)}">修改</button><button class="secondary" data-delete-class-affair="${escapeHtml(student.id)}">刪除</button></span></li>`).join("")}</ul>` : `<p class="field-note">${code} 班尚未建立名冊資料。</p>`;
+    root.querySelectorAll("[data-edit-class-affair]").forEach((button) => { button.onclick = () => { const student = classAffairsStudents.find((item) => item.id === button.dataset.editClassAffair); if (!student) return; const form = document.getElementById("class-affairs-form"); form.elements.seatNumber.value = student.seatNumber; form.elements.name.value = student.name; form.elements.openId.value = student.openId; editingClassAffairId = student.id; document.getElementById("class-affairs-submit").textContent = "儲存修改"; document.getElementById("class-affairs-cancel").hidden = false; form.scrollIntoView({ behavior: "smooth", block: "center" }); }; });
+    root.querySelectorAll("[data-delete-class-affair]").forEach((button) => { button.onclick = async () => { const student = classAffairsStudents.find((item) => item.id === button.dataset.deleteClassAffair); if (!student || !confirm(`確定刪除 ${student.seatNumber} 號 ${student.name} 的資料？`)) return; try { await setDoc(doc(db, "classAffairs", code), { students: classAffairsStudents.filter((item) => item.id !== student.id), updatedAt: serverTimestamp() }, { merge: true }); resetClassAffairsForm(); renderClassAffairsAdmin(); } catch (exception) { alert(`刪除失敗：${exception.message}`); } }; });
+  } catch (exception) { root.innerHTML = `<p class="field-note">讀取失敗：${escapeHtml(exception.message)}</p>`; }
 }
 
 async function renderCalendarAdminList() {
@@ -359,6 +377,7 @@ if (!configured) {
       if (!activityRefreshTimer) activityRefreshTimer = setInterval(renderActivity, 30000);
       renderTeacherStatus();
       renderCalendarAdminList();
+      renderClassAffairsAdmin();
     } else if (activityRefreshTimer) {
       clearInterval(activityRefreshTimer);
       activityRefreshTimer = null;
@@ -408,6 +427,25 @@ if (!configured) {
   document.getElementById("admin-calendar-next").onclick = () => { adminCurrentMonth = new Date(adminCurrentMonth.getFullYear(), adminCurrentMonth.getMonth() + 1, 1); renderAdminCalendar(); renderCalendarAdminItems(); };
   document.getElementById("admin-calendar-today").onclick = () => { adminCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); renderAdminCalendar(); renderCalendarAdminItems(); };
   document.querySelectorAll("[data-admin-nav]").forEach((link) => { link.onclick = (event) => { event.preventDefault(); chooseAdminPage(link.dataset.adminNav); }; });
+  document.getElementById("class-affairs-code").onchange = () => { resetClassAffairsForm(); renderClassAffairsAdmin(); };
+  document.getElementById("class-affairs-cancel").onclick = resetClassAffairsForm;
+  document.getElementById("class-affairs-form").onsubmit = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const code = document.getElementById("class-affairs-code").value;
+    const seatNumber = String(data.get("seatNumber")).trim();
+    const name = String(data.get("name")).trim();
+    const openId = String(data.get("openId")).trim();
+    const message = document.getElementById("class-affairs-message");
+    if (!seatNumber || !name || !openId) return;
+    const duplicate = classAffairsStudents.find((student) => String(student.seatNumber) === seatNumber && student.id !== editingClassAffairId);
+    if (duplicate) { message.textContent = `${seatNumber} 號已存在，請改用修改功能。`; return; }
+    const student = { id: editingClassAffairId || classAffairId(), seatNumber, name, openId };
+    const students = sortClassAffairs(editingClassAffairId ? classAffairsStudents.map((item) => item.id === editingClassAffairId ? student : item) : [...classAffairsStudents, student]);
+    message.textContent = "儲存中…";
+    try { await setDoc(doc(db, "classAffairs", code), { students, updatedAt: serverTimestamp() }, { merge: true }); message.textContent = `${seatNumber} 號 ${name} 已儲存。`; resetClassAffairsForm(); renderClassAffairsAdmin(); } catch (exception) { message.textContent = `儲存失敗：${exception.message}`; }
+  };
   document.getElementById("reset-teacher-form").onsubmit = async (event) => {
     event.preventDefault();
     const code = document.getElementById("reset-teacher-code").value;
