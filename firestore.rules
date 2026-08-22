@@ -21,6 +21,7 @@ service cloud.firestore {
     match /calendarEvents/{eventId} { allow read: if signedIn(); allow create, update, delete: if isAdmin(); }
     match /lotteries/{lotteryId} { allow read: if signedIn(); allow create, update, delete: if isAdmin(); }
     match /classAffairs/{classCode} { allow read: if signedIn(); allow create, update, delete: if isAdmin(); }
+    match /classAffairsConfig/{configId} { allow read: if signedIn(); allow create, update, delete: if isAdmin(); }
     match /teacherCredentials/{teacherCode} {
       allow read: if signedIn();
       allow create: if signedIn() && validTeacherCode(teacherCode) && request.resource.data.pinHash is string;

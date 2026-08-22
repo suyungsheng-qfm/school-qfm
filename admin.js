@@ -10,8 +10,11 @@ let pendingSchoolEvents = [];
 let activityRefreshTimer = null;
 let adminCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let adminCalendarEvents = [];
-let classAffairsStudents = [];
-let editingClassAffairId = null;
+let classAffairsTemplates = [];
+let classAffairsGroups = {};
+let selectedClassAffairsDatasetId = "";
+let editingClassAffairRecordId = null;
+let editingClassAffairsDatasetId = null;
 
 const error = document.getElementById("login-error");
 const schoolMessage = document.getElementById("school-calendar-message");
@@ -175,21 +178,49 @@ async function renderTeacherStatus() {
   }).join("")}</ul>`;
 }
 
+const DEFAULT_CLASS_AFFAIRS_DATASET = { id: "roster", name: "班級名冊", fields: ["座號", "姓名", "OpenID 帳號"] };
 function classAffairId() { return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`; }
-function sortClassAffairs(students) { return [...students].sort((a, b) => Number(a.seatNumber) - Number(b.seatNumber) || String(a.name).localeCompare(String(b.name), "zh-Hant")); }
-function resetClassAffairsForm() { editingClassAffairId = null; const form = document.getElementById("class-affairs-form"); form.reset(); document.getElementById("class-affairs-submit").textContent = "新增資料"; document.getElementById("class-affairs-cancel").hidden = true; }
-async function renderClassAffairsAdmin() {
+function activeClassAffairsDataset() { return classAffairsTemplates.find((dataset) => dataset.id === selectedClassAffairsDatasetId) || classAffairsTemplates[0]; }
+function legacyClassAffairsRecords(students = []) { return students.map((student, index) => ({ id: student.id || `legacy-${index}`, values: { "座號": String(student.seatNumber || ""), "姓名": student.name || "", "OpenID 帳號": student.openId || "" } })); }
+function normalizedClassAffairsGroups(data = {}) { return data.groups || (data.students ? { roster: { records: legacyClassAffairsRecords(data.students) } } : {}); }
+function datasetRecords(datasetId) { return classAffairsGroups[datasetId]?.records || []; }
+function resetClassAffairsRecordForm() { editingClassAffairRecordId = null; document.getElementById("class-affairs-record-form").reset(); document.getElementById("class-affairs-record-submit").textContent = "新增資料"; document.getElementById("class-affairs-record-cancel").hidden = true; renderClassAffairsRecordFields(); }
+function resetClassAffairsDatasetForm() { editingClassAffairsDatasetId = null; document.getElementById("class-affairs-dataset-form").reset(); document.getElementById("class-affairs-dataset-submit").textContent = "儲存資料組"; document.getElementById("class-affairs-dataset-cancel").hidden = true; }
+async function loadClassAffairsTemplates() {
+  const reference = doc(db, "classAffairsConfig", "settings");
+  const snapshot = await getDoc(reference);
+  classAffairsTemplates = snapshot.exists() && Array.isArray(snapshot.data().datasets) && snapshot.data().datasets.length ? snapshot.data().datasets : [DEFAULT_CLASS_AFFAIRS_DATASET];
+  if (!snapshot.exists()) await setDoc(reference, { datasets: classAffairsTemplates, updatedAt: serverTimestamp() });
+  if (!classAffairsTemplates.some((dataset) => dataset.id === selectedClassAffairsDatasetId)) selectedClassAffairsDatasetId = classAffairsTemplates[0].id;
+}
+function renderClassAffairsDatasetList() {
+  const root = document.getElementById("class-affairs-dataset-list");
+  root.innerHTML = `<h3>已設定資料組</h3><ul>${classAffairsTemplates.map((dataset) => `<li><span><strong>${escapeHtml(dataset.name)}</strong><small>${dataset.fields.map(escapeHtml).join("、")}</small></span><span><button class="secondary" data-edit-class-dataset="${dataset.id}">修改</button><button class="secondary" data-delete-class-dataset="${dataset.id}">刪除</button></span></li>`).join("")}</ul>`;
+  root.querySelectorAll("[data-edit-class-dataset]").forEach((button) => { button.onclick = () => { const dataset = classAffairsTemplates.find((item) => item.id === button.dataset.editClassDataset); if (!dataset) return; const form = document.getElementById("class-affairs-dataset-form"); form.elements.datasetName.value = dataset.name; form.elements.datasetFields.value = dataset.fields.join("\n"); editingClassAffairsDatasetId = dataset.id; document.getElementById("class-affairs-dataset-submit").textContent = "儲存格式修改"; document.getElementById("class-affairs-dataset-cancel").hidden = false; form.scrollIntoView({ behavior: "smooth", block: "center" }); }; });
+  root.querySelectorAll("[data-delete-class-dataset]").forEach((button) => { button.onclick = async () => { const dataset = classAffairsTemplates.find((item) => item.id === button.dataset.deleteClassDataset); if (!dataset || !confirm(`確定刪除資料組「${dataset.name}」？已建立的資料不會立即刪除，但使用者將無法切換查看。`)) return; classAffairsTemplates = classAffairsTemplates.filter((item) => item.id !== dataset.id); if (!classAffairsTemplates.length) return alert("至少需保留一個資料組。"); if (selectedClassAffairsDatasetId === dataset.id) selectedClassAffairsDatasetId = classAffairsTemplates[0].id; await setDoc(doc(db, "classAffairsConfig", "settings"), { datasets: classAffairsTemplates, updatedAt: serverTimestamp() }, { merge: true }); renderClassAffairsAdmin(); }; });
+}
+function renderClassAffairsRecordFields(values = {}) { const dataset = activeClassAffairsDataset(); const root = document.getElementById("class-affairs-record-fields"); root.innerHTML = dataset ? dataset.fields.map((field, index) => `<label>${escapeHtml(field)}<input name="recordField${index}" maxlength="160" required value="${escapeHtml(values[field] || "")}" /></label>`).join("") : "<p class=field-note>請先建立資料組。</p>"; }
+function renderClassAffairsRecordList() {
   const code = document.getElementById("class-affairs-code").value;
+  const dataset = activeClassAffairsDataset();
   const root = document.getElementById("class-affairs-admin-list");
-  root.textContent = "載入中…";
+  const records = dataset ? datasetRecords(dataset.id) : [];
+  root.innerHTML = dataset && records.length ? `<h3>${code} 班・${escapeHtml(dataset.name)}</h3><ul>${records.map((record, index) => `<li><span><strong>${index + 1}. ${dataset.fields.map((field) => `${escapeHtml(field)}：${escapeHtml(record.values?.[field] || "")}`).join("　")}</strong></span><span><button class="secondary" data-edit-class-record="${record.id}">修改</button><button class="secondary" data-delete-class-record="${record.id}">刪除</button></span></li>`).join("")}</ul>` : `<p class="field-note">${code} 班的「${escapeHtml(dataset?.name || "資料組")}」尚未建立資料。</p>`;
+  root.querySelectorAll("[data-edit-class-record]").forEach((button) => { button.onclick = () => { const record = datasetRecords(dataset.id).find((item) => item.id === button.dataset.editClassRecord); if (!record) return; editingClassAffairRecordId = record.id; document.getElementById("class-affairs-record-submit").textContent = "儲存修改"; document.getElementById("class-affairs-record-cancel").hidden = false; renderClassAffairsRecordFields(record.values || {}); document.getElementById("class-affairs-record-form").scrollIntoView({ behavior: "smooth", block: "center" }); }; });
+  root.querySelectorAll("[data-delete-class-record]").forEach((button) => { button.onclick = async () => { if (!confirm("確定刪除這筆資料？")) return; const groups = { ...classAffairsGroups, [dataset.id]: { records: datasetRecords(dataset.id).filter((item) => item.id !== button.dataset.deleteClassRecord) } }; await setDoc(doc(db, "classAffairs", code), { groups, updatedAt: serverTimestamp() }, { merge: true }); classAffairsGroups = groups; resetClassAffairsRecordForm(); renderClassAffairsRecordList(); }; });
+}
+async function renderClassAffairsAdmin() {
+  const root = document.getElementById("class-affairs-admin-list"); root.textContent = "載入中…";
   try {
+    await loadClassAffairsTemplates();
+    const code = document.getElementById("class-affairs-code").value;
     const snapshot = await getDoc(doc(db, "classAffairs", code));
-    classAffairsStudents = sortClassAffairs(snapshot.exists() ? (snapshot.data().students || []) : []);
-    root.innerHTML = classAffairsStudents.length ? `<h3>${code} 班名冊</h3><ul>${classAffairsStudents.map((student) => `<li><span><strong>${escapeHtml(student.seatNumber)} 號 ${escapeHtml(student.name)}</strong><small>OpenID 帳號：${escapeHtml(student.openId)}</small></span><span><button class="secondary" data-edit-class-affair="${escapeHtml(student.id)}">修改</button><button class="secondary" data-delete-class-affair="${escapeHtml(student.id)}">刪除</button></span></li>`).join("")}</ul>` : `<p class="field-note">${code} 班尚未建立名冊資料。</p>`;
-    root.querySelectorAll("[data-edit-class-affair]").forEach((button) => { button.onclick = () => { const student = classAffairsStudents.find((item) => item.id === button.dataset.editClassAffair); if (!student) return; const form = document.getElementById("class-affairs-form"); form.elements.seatNumber.value = student.seatNumber; form.elements.name.value = student.name; form.elements.openId.value = student.openId; editingClassAffairId = student.id; document.getElementById("class-affairs-submit").textContent = "儲存修改"; document.getElementById("class-affairs-cancel").hidden = false; form.scrollIntoView({ behavior: "smooth", block: "center" }); }; });
-    root.querySelectorAll("[data-delete-class-affair]").forEach((button) => { button.onclick = async () => { const student = classAffairsStudents.find((item) => item.id === button.dataset.deleteClassAffair); if (!student || !confirm(`確定刪除 ${student.seatNumber} 號 ${student.name} 的資料？`)) return; try { await setDoc(doc(db, "classAffairs", code), { students: classAffairsStudents.filter((item) => item.id !== student.id), updatedAt: serverTimestamp() }, { merge: true }); resetClassAffairsForm(); renderClassAffairsAdmin(); } catch (exception) { alert(`刪除失敗：${exception.message}`); } }; });
+    classAffairsGroups = normalizedClassAffairsGroups(snapshot.exists() ? snapshot.data() : {});
+    document.getElementById("class-affairs-dataset").innerHTML = classAffairsTemplates.map((dataset) => `<option value="${dataset.id}" ${dataset.id === selectedClassAffairsDatasetId ? "selected" : ""}>${escapeHtml(dataset.name)}</option>`).join("");
+    renderClassAffairsDatasetList(); renderClassAffairsRecordFields(); renderClassAffairsRecordList();
   } catch (exception) { root.innerHTML = `<p class="field-note">讀取失敗：${escapeHtml(exception.message)}</p>`; }
 }
+function parseClassAffairsRows(text) { const delimiter = text.includes("\t") ? "\t" : ","; const rows = [[]]; let value = "", quoted = false; for (let index = 0; index < text.length; index += 1) { const character = text[index]; if (character === '"') { if (quoted && text[index + 1] === '"') { value += '"'; index += 1; } else quoted = !quoted; } else if (!quoted && character === delimiter) { rows.at(-1).push(value.trim()); value = ""; } else if (!quoted && (character === "\n" || character === "\r")) { if (character === "\r" && text[index + 1] === "\n") index += 1; rows.at(-1).push(value.trim()); value = ""; rows.push([]); } else value += character; } rows.at(-1).push(value.trim()); return rows.filter((row) => row.some(Boolean)); }
 
 async function renderCalendarAdminList() {
   const root = document.getElementById("calendar-admin-list");
@@ -427,24 +458,47 @@ if (!configured) {
   document.getElementById("admin-calendar-next").onclick = () => { adminCurrentMonth = new Date(adminCurrentMonth.getFullYear(), adminCurrentMonth.getMonth() + 1, 1); renderAdminCalendar(); renderCalendarAdminItems(); };
   document.getElementById("admin-calendar-today").onclick = () => { adminCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); renderAdminCalendar(); renderCalendarAdminItems(); };
   document.querySelectorAll("[data-admin-nav]").forEach((link) => { link.onclick = (event) => { event.preventDefault(); chooseAdminPage(link.dataset.adminNav); }; });
-  document.getElementById("class-affairs-code").onchange = () => { resetClassAffairsForm(); renderClassAffairsAdmin(); };
-  document.getElementById("class-affairs-cancel").onclick = resetClassAffairsForm;
-  document.getElementById("class-affairs-form").onsubmit = async (event) => {
+  document.getElementById("class-affairs-code").onchange = () => { editingClassAffairRecordId = null; renderClassAffairsAdmin(); };
+  document.getElementById("class-affairs-dataset").onchange = (event) => { selectedClassAffairsDatasetId = event.target.value; resetClassAffairsRecordForm(); renderClassAffairsRecordList(); };
+  document.getElementById("class-affairs-record-cancel").onclick = resetClassAffairsRecordForm;
+  document.getElementById("class-affairs-dataset-cancel").onclick = resetClassAffairsDatasetForm;
+  document.getElementById("class-affairs-dataset-form").onsubmit = async (event) => {
     event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
+    const data = new FormData(event.currentTarget);
+    const name = String(data.get("datasetName")).trim();
+    const fields = lines(String(data.get("datasetFields")));
+    if (!name || !fields.length) return;
+    if (classAffairsTemplates.some((dataset) => dataset.name === name && dataset.id !== editingClassAffairsDatasetId)) return alert("已有相同名稱的資料組。");
+    const dataset = { id: editingClassAffairsDatasetId || classAffairId(), name, fields };
+    classAffairsTemplates = editingClassAffairsDatasetId ? classAffairsTemplates.map((item) => item.id === editingClassAffairsDatasetId ? dataset : item) : [...classAffairsTemplates, dataset];
+    selectedClassAffairsDatasetId = dataset.id;
+    try { await setDoc(doc(db, "classAffairsConfig", "settings"), { datasets: classAffairsTemplates, updatedAt: serverTimestamp() }, { merge: true }); resetClassAffairsDatasetForm(); renderClassAffairsAdmin(); } catch (exception) { alert(`儲存資料組失敗：${exception.message}`); }
+  };
+  document.getElementById("class-affairs-record-form").onsubmit = async (event) => {
+    event.preventDefault();
+    const dataset = activeClassAffairsDataset();
+    if (!dataset) return;
+    const data = new FormData(event.currentTarget);
+    const values = Object.fromEntries(dataset.fields.map((field, index) => [field, String(data.get(`recordField${index}`)).trim()]));
+    if (Object.values(values).some((value) => !value)) return;
     const code = document.getElementById("class-affairs-code").value;
-    const seatNumber = String(data.get("seatNumber")).trim();
-    const name = String(data.get("name")).trim();
-    const openId = String(data.get("openId")).trim();
-    const message = document.getElementById("class-affairs-message");
-    if (!seatNumber || !name || !openId) return;
-    const duplicate = classAffairsStudents.find((student) => String(student.seatNumber) === seatNumber && student.id !== editingClassAffairId);
-    if (duplicate) { message.textContent = `${seatNumber} 號已存在，請改用修改功能。`; return; }
-    const student = { id: editingClassAffairId || classAffairId(), seatNumber, name, openId };
-    const students = sortClassAffairs(editingClassAffairId ? classAffairsStudents.map((item) => item.id === editingClassAffairId ? student : item) : [...classAffairsStudents, student]);
-    message.textContent = "儲存中…";
-    try { await setDoc(doc(db, "classAffairs", code), { students, updatedAt: serverTimestamp() }, { merge: true }); message.textContent = `${seatNumber} 號 ${name} 已儲存。`; resetClassAffairsForm(); renderClassAffairsAdmin(); } catch (exception) { message.textContent = `儲存失敗：${exception.message}`; }
+    const record = { id: editingClassAffairRecordId || classAffairId(), values };
+    const records = editingClassAffairRecordId ? datasetRecords(dataset.id).map((item) => item.id === editingClassAffairRecordId ? record : item) : [...datasetRecords(dataset.id), record];
+    const groups = { ...classAffairsGroups, [dataset.id]: { records } };
+    const message = document.getElementById("class-affairs-message"); message.textContent = "儲存中…";
+    try { await setDoc(doc(db, "classAffairs", code), { groups, updatedAt: serverTimestamp() }, { merge: true }); classAffairsGroups = groups; message.textContent = "資料已儲存。"; resetClassAffairsRecordForm(); renderClassAffairsRecordList(); } catch (exception) { message.textContent = `儲存失敗：${exception.message}`; }
+  };
+  document.getElementById("class-affairs-batch-file").onchange = async (event) => { const file = event.target.files?.[0]; if (file) document.getElementById("class-affairs-batch-data").value = await file.text(); };
+  document.getElementById("class-affairs-batch-import").onclick = async () => {
+    const dataset = activeClassAffairsDataset(); const message = document.getElementById("class-affairs-message"); const rows = parseClassAffairsRows(document.getElementById("class-affairs-batch-data").value);
+    if (!dataset || rows.length < 2) { message.textContent = "請提供包含標題列與至少一筆資料的 CSV 或 Excel 資料。"; return; }
+    const header = rows.shift(); const positions = dataset.fields.map((field) => header.indexOf(field));
+    if (positions.some((position) => position < 0)) { message.textContent = `標題列需包含：${dataset.fields.join("、")}`; return; }
+    const records = rows.map((row) => ({ id: classAffairId(), values: Object.fromEntries(dataset.fields.map((field, index) => [field, row[positions[index]] || ""])) })).filter((record) => Object.values(record.values).some(Boolean));
+    if (!records.length) { message.textContent = "找不到可匯入的資料。"; return; }
+    const code = document.getElementById("class-affairs-code").value; const groups = { ...classAffairsGroups, [dataset.id]: { records: [...datasetRecords(dataset.id), ...records] } };
+    message.textContent = `正在匯入 ${records.length} 筆資料…`;
+    try { await setDoc(doc(db, "classAffairs", code), { groups, updatedAt: serverTimestamp() }, { merge: true }); classAffairsGroups = groups; document.getElementById("class-affairs-batch-data").value = ""; document.getElementById("class-affairs-batch-file").value = ""; message.textContent = `已匯入 ${records.length} 筆資料。`; renderClassAffairsRecordList(); } catch (exception) { message.textContent = `匯入失敗：${exception.message}`; }
   };
   document.getElementById("reset-teacher-form").onsubmit = async (event) => {
     event.preventDefault();
