@@ -16,6 +16,7 @@ let selectedClassAffairsDatasetId = "";
 let editingClassAffairRecordId = null;
 let editingClassAffairsDatasetId = null;
 let classAffairsStatisticsSourceId = "";
+let classAffairsView = "overview";
 
 const error = document.getElementById("login-error");
 const schoolMessage = document.getElementById("school-calendar-message");
@@ -181,7 +182,7 @@ async function renderTeacherStatus() {
 
 const DEFAULT_CLASS_AFFAIRS_DATASET = { id: "roster", name: "班級名冊", fields: ["座號", "姓名", "OpenID 帳號"] };
 function classAffairId() { return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`; }
-function activeClassAffairsDataset() { return classAffairsTemplates.find((dataset) => dataset.id === selectedClassAffairsDatasetId) || classAffairsTemplates[0]; }
+function activeClassAffairsDataset() { return classAffairsTemplates.find((dataset) => dataset.id === selectedClassAffairsDatasetId); }
 function legacyClassAffairsRecords(students = []) { return students.map((student, index) => ({ id: student.id || `legacy-${index}`, values: { "座號": String(student.seatNumber || ""), "姓名": student.name || "", "OpenID 帳號": student.openId || "" } })); }
 function normalizedClassAffairsGroups(data = {}) { return data.groups || (data.students ? { roster: { records: legacyClassAffairsRecords(data.students) } } : {}); }
 function datasetRecords(datasetId) { return classAffairsGroups[datasetId]?.records || []; }
@@ -208,13 +209,14 @@ async function loadClassAffairsTemplates() {
   classAffairsTemplates = Array.isArray(config.datasets) ? config.datasets : [DEFAULT_CLASS_AFFAIRS_DATASET];
   classAffairsStatisticsSourceId = config.statisticsSourceDatasetId || classAffairsTemplates.find((dataset) => normalizeDatasetName(dataset.name) === normalizeDatasetName("學生openid帳號"))?.id || "";
   if (!snapshot.exists()) await setDoc(reference, { datasets: classAffairsTemplates, updatedAt: serverTimestamp() });
-  if (!classAffairsTemplates.some((dataset) => dataset.id === selectedClassAffairsDatasetId)) selectedClassAffairsDatasetId = classAffairsTemplates[0]?.id || "";
+  if (selectedClassAffairsDatasetId && !classAffairsTemplates.some((dataset) => dataset.id === selectedClassAffairsDatasetId)) selectedClassAffairsDatasetId = "";
 }
 function renderClassAffairsDatasetList() {
   const root = document.getElementById("class-affairs-dataset-list");
-  root.innerHTML = classAffairsTemplates.length ? `<h3>已設定資料組</h3><ul>${classAffairsTemplates.map((dataset) => `<li><span><strong>${escapeHtml(dataset.name)}</strong><small>${dataset.fields.map(escapeHtml).join("、")}</small></span><span><button class="secondary" data-edit-class-dataset="${dataset.id}">修改</button><button class="secondary" data-delete-class-dataset="${dataset.id}">刪除</button></span></li>`).join("")}</ul>` : "<p class=field-note>目前尚未設定資料組。</p>";
+  const visibleTemplates = classAffairsView === "detail" ? classAffairsTemplates.filter((dataset) => dataset.id === selectedClassAffairsDatasetId) : classAffairsView === "new" ? [] : classAffairsTemplates;
+  root.innerHTML = visibleTemplates.length ? `<h3>資料組設定</h3><ul>${visibleTemplates.map((dataset) => `<li><span><strong>${escapeHtml(dataset.name)}</strong><small>${dataset.fields.map(escapeHtml).join("、")}</small></span><span><button class="secondary" data-edit-class-dataset="${dataset.id}">修改</button><button class="secondary" data-delete-class-dataset="${dataset.id}">刪除</button></span></li>`).join("")}</ul>` : classAffairsView === "new" ? "<p class=field-note>請設定新資料組名稱與欄位格式。</p>" : "<p class=field-note>目前尚未設定資料組。</p>";
   root.querySelectorAll("[data-edit-class-dataset]").forEach((button) => { button.onclick = () => { const dataset = classAffairsTemplates.find((item) => item.id === button.dataset.editClassDataset); if (!dataset) return; const form = document.getElementById("class-affairs-dataset-form"); form.elements.datasetName.value = dataset.name; form.elements.datasetFields.value = dataset.fields.join("\n"); editingClassAffairsDatasetId = dataset.id; document.getElementById("class-affairs-dataset-submit").textContent = "儲存格式修改"; document.getElementById("class-affairs-dataset-cancel").hidden = false; form.scrollIntoView({ behavior: "smooth", block: "center" }); }; });
-  root.querySelectorAll("[data-delete-class-dataset]").forEach((button) => { button.onclick = async () => { const dataset = classAffairsTemplates.find((item) => item.id === button.dataset.deleteClassDataset); if (!dataset || !confirm(`確定刪除資料組「${dataset.name}」？已建立的資料不會立即刪除，但使用者將無法切換查看。`)) return; classAffairsTemplates = classAffairsTemplates.filter((item) => item.id !== dataset.id); if (selectedClassAffairsDatasetId === dataset.id) selectedClassAffairsDatasetId = classAffairsTemplates[0]?.id || ""; if (classAffairsStatisticsSourceId === dataset.id) classAffairsStatisticsSourceId = ""; await setDoc(doc(db, "classAffairsConfig", "settings"), { datasets: classAffairsTemplates, statisticsSourceDatasetId: classAffairsStatisticsSourceId, updatedAt: serverTimestamp() }, { merge: true }); renderClassAffairsAdmin(); }; });
+  root.querySelectorAll("[data-delete-class-dataset]").forEach((button) => { button.onclick = async () => { const dataset = classAffairsTemplates.find((item) => item.id === button.dataset.deleteClassDataset); if (!dataset || !confirm(`確定刪除資料組「${dataset.name}」？已建立的資料不會立即刪除，但使用者將無法切換查看。`)) return; classAffairsTemplates = classAffairsTemplates.filter((item) => item.id !== dataset.id); if (selectedClassAffairsDatasetId === dataset.id) selectedClassAffairsDatasetId = ""; if (classAffairsStatisticsSourceId === dataset.id) classAffairsStatisticsSourceId = ""; classAffairsView = "overview"; await setDoc(doc(db, "classAffairsConfig", "settings"), { datasets: classAffairsTemplates, statisticsSourceDatasetId: classAffairsStatisticsSourceId, updatedAt: serverTimestamp() }, { merge: true }); renderClassAffairsAdmin(); }; });
 }
 function renderClassAffairsRecordFields(values = {}) { const dataset = activeClassAffairsDataset(); const root = document.getElementById("class-affairs-record-fields"); root.innerHTML = dataset ? dataset.fields.map((field, index) => `<label>${escapeHtml(field)}<input name="recordField${index}" maxlength="160" required value="${escapeHtml(values[field] || "")}" /></label>`).join("") : "<p class=field-note>請先建立資料組。</p>"; }
 function renderClassAffairsRecordList() {
@@ -233,8 +235,15 @@ async function renderClassAffairsAdmin() {
     const code = document.getElementById("class-affairs-code").value;
     const snapshot = await getDoc(doc(db, "classAffairs", code));
     classAffairsGroups = normalizedClassAffairsGroups(snapshot.exists() ? snapshot.data() : {});
+    const section = document.getElementById("admin-class-affairs"); const intro = section.querySelector("p:not(.eyebrow)"); section.querySelector("h2").textContent = "班務資料";
+    let overview = document.getElementById("class-affairs-overview"); if (!overview) { overview = document.createElement("section"); overview.id = "class-affairs-overview"; overview.className = "class-affairs-overview"; document.querySelector("#admin-class-affairs .class-affairs-config").before(overview); }
+    const statistics = document.getElementById("class-affairs-statistics"); const config = document.querySelector("#admin-class-affairs .class-affairs-config"); const recordsPanel = document.querySelector("#admin-class-affairs .class-affairs-records");
+    if (classAffairsView === "overview") { selectedClassAffairsDatasetId = ""; overview.hidden = false; config.hidden = true; recordsPanel.hidden = true; if (statistics) statistics.hidden = true; overview.innerHTML = `<h3>班務資料</h3><p class="field-note">選擇已建立的資料組，或建立新的資料組。</p><div class="class-affairs-labels">${classAffairsTemplates.map((dataset) => `<button data-open-class-dataset="${dataset.id}">${escapeHtml(dataset.name)}</button>`).join("")}<button class="class-affairs-add" data-new-class-dataset="true">＋ 新增資料組</button></div>`; overview.querySelectorAll("[data-open-class-dataset]").forEach((button) => { button.onclick = () => { selectedClassAffairsDatasetId = button.dataset.openClassDataset; classAffairsView = "detail"; resetClassAffairsDatasetForm(); renderClassAffairsAdmin(); }; }); overview.querySelector("[data-new-class-dataset]").onclick = () => { selectedClassAffairsDatasetId = ""; classAffairsView = "new"; resetClassAffairsDatasetForm(); renderClassAffairsAdmin(); }; return; }
+    overview.hidden = true; config.hidden = false; const back = document.createElement("button"); back.type = "button"; back.className = "secondary class-affairs-back"; back.textContent = "‹ 返回班務資料"; if (!config.querySelector(".class-affairs-back")) config.prepend(back); config.querySelector(".class-affairs-back").onclick = () => { classAffairsView = "overview"; selectedClassAffairsDatasetId = ""; resetClassAffairsDatasetForm(); renderClassAffairsAdmin(); };
     document.getElementById("class-affairs-dataset").innerHTML = classAffairsTemplates.map((dataset) => `<option value="${dataset.id}" ${dataset.id === selectedClassAffairsDatasetId ? "selected" : ""}>${escapeHtml(dataset.name)}</option>`).join("");
-    renderClassAffairsDatasetList(); renderClassAffairsRecordFields(); renderClassAffairsRecordList(); renderClassAffairsStatistics();
+    renderClassAffairsDatasetList();
+    if (classAffairsView === "new") { recordsPanel.hidden = true; if (statistics) statistics.hidden = true; return; }
+    recordsPanel.hidden = false; if (statistics) statistics.hidden = false; renderClassAffairsRecordFields(); renderClassAffairsRecordList(); renderClassAffairsStatistics();
   } catch (exception) { root.innerHTML = `<p class="field-note">讀取失敗：${escapeHtml(exception.message)}</p>`; }
 }
 function parseClassAffairsRows(text) { const delimiter = text.includes("\t") ? "\t" : text.includes(",") ? "," : text.includes("|") ? "|" : null; if (!delimiter) return text.split(/\r?\n/).map((line) => line.trim().split(/\s+/).filter(Boolean)).filter((row) => row.length); const rows = [[]]; let value = "", quoted = false; for (let index = 0; index < text.length; index += 1) { const character = text[index]; if (character === '"') { if (quoted && text[index + 1] === '"') { value += '"'; index += 1; } else quoted = !quoted; } else if (!quoted && character === delimiter) { rows.at(-1).push(value.trim()); value = ""; } else if (!quoted && (character === "\n" || character === "\r")) { if (character === "\r" && text[index + 1] === "\n") index += 1; rows.at(-1).push(value.trim()); value = ""; rows.push([]); } else value += character; } rows.at(-1).push(value.trim()); return rows.map((row) => { if (delimiter !== "|") return row; if (!row[0]) row.shift(); if (!row.at(-1)) row.pop(); return row; }).filter((row) => row.some(Boolean) && !row.every((cell) => /^:?-{2,}:?$/.test(cell))); }
@@ -371,7 +380,6 @@ function chooseSettingsPanel(panel) { setupSettingsPanels(); document.querySelec
 function chooseAdminPage(page) {
   document.querySelectorAll(".admin-feature").forEach((section) => section.classList.toggle("is-active", section.dataset.adminPage === page));
   document.querySelectorAll("[data-admin-nav]").forEach((link) => link.classList.toggle("is-selected", link.dataset.adminNav === page));
-  if (page === "settings") chooseSettingsPanel("home");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -502,6 +510,7 @@ if (!configured) {
     const dataset = { id: editingClassAffairsDatasetId || classAffairId(), name, fields };
     classAffairsTemplates = editingClassAffairsDatasetId ? classAffairsTemplates.map((item) => item.id === editingClassAffairsDatasetId ? dataset : item) : [...classAffairsTemplates, dataset];
     selectedClassAffairsDatasetId = dataset.id;
+    classAffairsView = "detail";
     if (normalizeDatasetName(name) === normalizeDatasetName("學生openid帳號")) classAffairsStatisticsSourceId = dataset.id;
     try { await setDoc(doc(db, "classAffairsConfig", "settings"), { datasets: classAffairsTemplates, statisticsSourceDatasetId: classAffairsStatisticsSourceId, updatedAt: serverTimestamp() }, { merge: true }); resetClassAffairsDatasetForm(); renderClassAffairsAdmin(); } catch (exception) { alert(`儲存資料組失敗：${exception.message}`); }
   };
