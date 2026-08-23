@@ -53,7 +53,7 @@ const SOURCE_DOCUMENT_CALENDAR_EVENTS = {
   21: "1/18 運動會預演\n1/19 運動會\n1/20 休業式",
 };
 const DOCUMENT_CALENDAR_SOURCE_VERSION = 2;
-const DOCUMENT_CALENDAR_HOLIDAYS = new Set(["9/25", "9/28", "10/9", "10/29", "12/25", "1/1"]);
+const DOCUMENT_CALENDAR_HOLIDAYS = new Set(["9/25", "9/28", "10/9", "10/26", "12/25", "1/1"]);
 const DOCUMENT_CALENDAR_TITLE = "前峰國中 115 學年度第一學期 八年級行事曆";
 const DOCUMENT_EXAM_SCHEDULE = {
   title: "前峰國中 115 學年度第一學期 第一次段考時程表",
