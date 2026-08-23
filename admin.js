@@ -17,6 +17,25 @@ let editingClassAffairRecordId = null;
 let editingClassAffairsDatasetId = null;
 let classAffairsStatisticsSourceId = "";
 let classAffairsView = "overview";
+let documentCalendarEvents = {};
+let activeDocumentView = "calendar";
+
+const DOCUMENT_CALENDAR_ROWS = [
+  ["8月", "開學準備週", [23, 24, 25, 26, 27, 28, 29]], ["8月", "一", [30, 31, 1, 2, 3, 4, 5]],
+  ["9月", "二", [6, 7, 8, 9, 10, 11, 12]], ["9月", "三", [13, 14, 15, 16, 17, 18, 19]], ["9月", "四", [20, 21, 22, 23, 24, 25, 26]], ["9月", "五", [27, 28, 29, 30, 1, 2, 3]],
+  ["10月", "六", [4, 5, 6, 7, 8, 9, 10]], ["10月", "七", [11, 12, 13, 14, 15, 16, 17]], ["10月", "八", [18, 19, 20, 21, 22, 23, 24]], ["10月", "九", [25, 26, 27, 28, 29, 30, 31]],
+  ["11月", "十", [1, 2, 3, 4, 5, 6, 7]], ["11月", "十一", [8, 9, 10, 11, 12, 13, 14]], ["11月", "十二", [15, 16, 17, 18, 19, 20, 21]], ["11月", "十三", [22, 23, 24, 25, 26, 27, 28]], ["11月", "十四", [29, 30, 1, 2, 3, 4, 5]],
+  ["12月", "十五", [6, 7, 8, 9, 10, 11, 12]], ["12月", "十六", [13, 14, 15, 16, 17, 18, 19]], ["12月", "十七", [20, 21, 22, 23, 24, 25, 26]], ["12月", "十八", [27, 28, 29, 30, 31, 1, 2]],
+  ["1月", "十九", [3, 4, 5, 6, 7, 8, 9]], ["1月", "二十", [10, 11, 12, 13, 14, 15, 16]], ["1月", "二一", [17, 18, 19, 20, 21, 22, 23]],
+];
+const DEFAULT_DOCUMENT_CALENDAR_EVENTS = {
+  0: "8/28 全校返校日", 1: "8/31 開學\n9/1～9/2、9/4 補考\n9/3（午休）全校幹部訓練", 2: "9/7 第8節輔導課、學習扶助開始\n9/11 幹部訓練・租稅講座", 3: "9/14 SH150 活動開始\n9/18 親師座談", 4: "9/21 防震防災演習\n9/23 數學作業抽查", 5: "10/2 中秋節放假", 7: "10/13～10/14 第一次段考", 8: "10/20～10/21 第一次段考\n10/22 服務學習（早自修）", 9: "10/26～10/30 校內國語文競賽\n10/28 自然作業抽查", 10: "11/4 流感疫苗施打\n11/4 歷史作業抽查", 11: "11/9 八年級職業試探（上午，801～805）\n11/12 聯絡簿抽查（八年級）", 12: "11/16 八年級職業試探（上午，806～810）\n11/16～11/20 運動會預賽\n11/18 地理作業抽查", 14: "12/2～12/3 第二次段考\n12/4 服務學習（早自修）", 15: "12/9 國文作業抽查", 16: "12/17 校慶預演\n12/18 校慶運動會", 17: "12/23 公民作業抽查", 18: "1/1 童軍露營行前說明會", 19: "1/4 開國記念日放假\n1/5～1/7 八年級童軍露營", 20: "1/15 八年級第8節輔導課結束", 21: "1/20～1/22 第三次段考暨非會考科目期末考\n1/22 休業式",
+};
+const DOCUMENT_EXAM_SCHEDULE = {
+  title: "高雄市立前峰國民中學 115 學年度第一學期 第一次段考測驗科目及時程表",
+  dates: ["5/9（星期二）", "5/10（星期三）"],
+  rows: [["第一節", "8：20－9：05", "公民 09", "科技 16"], ["第二節", "9：15－10：00", "自習", "地理 07"], ["第三節", "10：15－11：00", "英文（聽力與閱讀） 02", "自習"], ["第四節", "11：10－11：55", "歷史 08", "數學 03"], ["午休時間", "午休時間", "午休時間", "午休時間"], ["第五節", "13：20－14：05", "英文寫作", "作文"], ["第六節", "14：15－15：00", "自習", "自習"], ["第七節", "15：10－15：55", "自然 04", "國文 01"]],
+};
 
 const error = document.getElementById("login-error");
 const schoolMessage = document.getElementById("school-calendar-message");
@@ -377,6 +396,65 @@ function setupSettingsPanels() {
   document.querySelectorAll("[data-settings-target]").forEach((button) => { button.onclick = () => chooseSettingsPanel(button.dataset.settingsTarget); });
 }
 function chooseSettingsPanel(panel) { setupSettingsPanels(); document.querySelectorAll("[data-settings-panel]").forEach((section) => section.classList.toggle("is-active", section.dataset.settingsPanel === panel)); window.scrollTo({ top: 0, behavior: "smooth" }); }
+function documentEventText(value = "") { return escapeHtml(value).replace(/\n/g, "<br>"); }
+function documentEventDays() { return new Set(Object.values(documentCalendarEvents).flatMap((value) => String(value).match(/\b\d{1,2}\/\d{1,2}\b/g) || [])); }
+function formatDocumentExam(value) { const match = String(value).match(/^(.*?)\s+(\d{2})$/); return match ? `${escapeHtml(match[1])}<small>教室 ${match[2]}</small>` : escapeHtml(value); }
+function setupDocumentsPanel() {
+  if (document.getElementById("admin-documents")) return;
+  const panel = document.createElement("article");
+  panel.id = "admin-documents";
+  panel.dataset.adminPage = "documents";
+  panel.className = "panel admin-feature";
+  document.querySelector(".admin-grid").append(panel);
+  const nav = document.getElementById("admin-nav");
+  const link = document.createElement("a");
+  link.href = "#admin-documents";
+  link.dataset.adminNav = "documents";
+  link.innerHTML = "<span>▤</span>文件";
+  const settings = nav.querySelector("[data-admin-nav='settings']");
+  nav.insertBefore(link, settings || null);
+  link.onclick = (event) => { event.preventDefault(); chooseAdminPage("documents"); };
+  renderDocuments();
+}
+function renderDocuments() {
+  const panel = document.getElementById("admin-documents");
+  if (!panel) return;
+  const monthCounts = DOCUMENT_CALENDAR_ROWS.reduce((counts, [month]) => ({ ...counts, [month]: (counts[month] || 0) + 1 }), {});
+  const shownMonths = new Set();
+  const eventDays = documentEventDays();
+  const calendarRows = DOCUMENT_CALENDAR_ROWS.map(([month, week, days], index) => {
+    const monthCell = shownMonths.has(month) ? "" : `<th scope="rowgroup" rowspan="${monthCounts[month]}" class="document-calendar-month">${month}</th>`;
+    shownMonths.add(month);
+    const cells = days.map((day, dayIndex) => {
+      const date = new Date(2026, 7, 23 + index * 7 + dayIndex);
+      const key = `${date.getMonth() + 1}/${date.getDate()}`;
+      return `<td class="${dayIndex === 0 || dayIndex === 6 ? "is-weekend" : ""}${eventDays.has(key) ? " has-event" : ""}">${day}</td>`;
+    }).join("");
+    return `<tr>${monthCell}<th scope="row">${week}</th>${cells}<td class="document-calendar-events">${documentEventText(documentCalendarEvents[index] || "")}</td></tr>`;
+  }).join("");
+  const editorRows = DOCUMENT_CALENDAR_ROWS.map(([month, week], index) => `<label><span>${month}・第 ${week} 週</span><textarea data-document-calendar-event="${index}" rows="2" maxlength="500">${escapeHtml(documentCalendarEvents[index] || "")}</textarea></label>`).join("");
+  const examRows = DOCUMENT_EXAM_SCHEDULE.rows.map(([period, time, first, second]) => `<tr class="${period === "午休時間" ? "is-lunch" : ""}"><th scope="row">${period}</th><td>${time}</td><td>${formatDocumentExam(first)}</td><td>${formatDocumentExam(second)}</td></tr>`).join("");
+  panel.innerHTML = `<p class="eyebrow">DOCUMENTS</p><h2>文件</h2><p class="field-note">整合學期行事與段考時程，可在手機上查看或列印。</p><div class="document-tabs" role="tablist"><button type="button" data-document-view="calendar" class="${activeDocumentView === "calendar" ? "is-selected" : ""}">行事曆</button><button type="button" data-document-view="exam" class="${activeDocumentView === "exam" ? "is-selected" : ""}">考程表</button></div><section class="document-view ${activeDocumentView === "calendar" ? "is-active" : ""}" data-document-section="calendar"><div class="document-heading"><div><h3>115 學年度第一學期 八年級行事曆</h3><p>週表式學期行事</p></div><div><button type="button" class="secondary" id="edit-document-calendar">編修行事</button><button type="button" id="print-document-calendar">列印</button></div></div><div class="document-table-wrap"><table class="document-calendar-table"><thead><tr><th rowspan="2">月份</th><th rowspan="2">週次</th><th colspan="7">星期</th><th rowspan="2">重要行事</th></tr><tr><th>日</th><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th></tr></thead><tbody>${calendarRows}</tbody></table></div><section id="document-calendar-editor" class="document-calendar-editor" hidden><h3>編修重要行事</h3><p class="field-note">每週一格，修改後會儲存至 Firebase，其他管理者登入時也會看到。</p><div>${editorRows}</div><button type="button" id="save-document-calendar">儲存修改</button><button type="button" id="cancel-document-calendar" class="secondary">取消</button><p id="document-calendar-message" class="field-note" role="status"></p></section></section><section class="document-view ${activeDocumentView === "exam" ? "is-active" : ""}" data-document-section="exam"><div class="document-heading"><div><h3>考程表</h3><p>第一次段考時程</p></div><button type="button" id="print-document-exam">列印</button></div><section class="document-exam"><h3>${escapeHtml(DOCUMENT_EXAM_SCHEDULE.title)}</h3><div class="document-table-wrap"><table><thead><tr><th>堂次</th><th>時間</th><th>${DOCUMENT_EXAM_SCHEDULE.dates.map(escapeHtml).join("</th><th>")}</th></tr></thead><tbody>${examRows}</tbody></table></div></section></section>`;
+  panel.querySelectorAll("[data-document-view]").forEach((button) => { button.onclick = () => { activeDocumentView = button.dataset.documentView; renderDocuments(); }; });
+  panel.querySelector("#edit-document-calendar").onclick = () => { panel.querySelector("#document-calendar-editor").hidden = false; panel.querySelector("#edit-document-calendar").hidden = true; };
+  panel.querySelector("#cancel-document-calendar").onclick = () => renderDocuments();
+  panel.querySelector("#save-document-calendar").onclick = async () => {
+    const message = panel.querySelector("#document-calendar-message");
+    panel.querySelectorAll("[data-document-calendar-event]").forEach((field) => { documentCalendarEvents[field.dataset.documentCalendarEvent] = field.value.trim(); });
+    message.textContent = "儲存中…";
+    try { await setDoc(doc(db, "classAffairsConfig", "teacherDocuments"), { events: documentCalendarEvents, updatedAt: serverTimestamp() }, { merge: true }); message.textContent = "已儲存。"; renderDocuments(); } catch (exception) { message.textContent = `儲存失敗：${exception.message}`; }
+  };
+  panel.querySelector("#print-document-calendar").onclick = () => printDocument("calendar");
+  panel.querySelector("#print-document-exam").onclick = () => printDocument("exam");
+}
+async function loadDocumentCalendar() {
+  documentCalendarEvents = { ...DEFAULT_DOCUMENT_CALENDAR_EVENTS };
+  try { const snapshot = await getDoc(doc(db, "classAffairsConfig", "teacherDocuments")); if (snapshot.exists() && snapshot.data().events) documentCalendarEvents = { ...documentCalendarEvents, ...snapshot.data().events }; } catch (exception) { console.warn("無法讀取文件行事曆", exception); }
+  renderDocuments();
+}
+function printDocument(kind) { document.body.classList.add("printing-documents", `printing-document-${kind}`); window.print(); }
+window.addEventListener("afterprint", () => document.body.classList.remove("printing-documents", "printing-document-calendar", "printing-document-exam"));
+
 function chooseAdminPage(page) {
   document.querySelectorAll(".admin-feature").forEach((section) => section.classList.toggle("is-active", section.dataset.adminPage === page));
   document.querySelectorAll("[data-admin-nav]").forEach((link) => link.classList.toggle("is-selected", link.dataset.adminNav === page));
@@ -441,6 +519,8 @@ if (!configured) {
     document.getElementById("admin-nav").hidden = !adminUser;
     if (adminUser) {
       document.getElementById("admin-email").textContent = user.email;
+      setupDocumentsPanel();
+      await loadDocumentCalendar();
       chooseAdminPage("calendar");
       renderActivity();
       if (!activityRefreshTimer) activityRefreshTimer = setInterval(renderActivity, 30000);
