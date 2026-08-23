@@ -446,6 +446,14 @@ function formatDocumentExam(value) {
   return `${subjectHtml}${code ? `<small>${code}</small>` : ""}`;
 }
 function formatDocumentTime(value) { const match = String(value).match(/^(.+?)[－-](.+)$/); return match ? `${escapeHtml(match[1])}<br><span class="exam-time-end">${escapeHtml(match[2])}</span>` : escapeHtml(value); }
+function examDateInput(value = "") { const match = String(value).match(/(\d{1,2})\s*\/\s*(\d{1,2})/); return match ? `${Number(match[1])}/${Number(match[2])}` : ""; }
+function formatExamDate(value = "") {
+  const dateText = examDateInput(value); const match = dateText.match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (!match) return "";
+  const month = Number(match[1]); const day = Number(match[2]); const year = month >= 8 ? 2026 : 2027; const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return "";
+  return `${month}/${day}（星期${["日", "一", "二", "三", "四", "五", "六"][date.getDay()]}）`;
+}
 function setupDocumentsPanel() {
   if (document.getElementById("admin-documents")) return;
   const panel = document.createElement("article");
@@ -516,7 +524,7 @@ function renderDocuments() {
   examEditor.id = "document-exam-editor";
   examEditor.className = "document-exam-editor";
   examEditor.hidden = true;
-  examEditor.innerHTML = `<h3>編修考程表</h3><label>標題<input data-exam-title maxlength="120" value="${escapeHtml(examSchedule.title)}" /></label><div class="document-exam-editor-dates"><label>第一天日期<input data-exam-date="0" maxlength="30" value="${escapeHtml(examSchedule.dates[0])}" /></label><label>第二天日期<input data-exam-date="1" maxlength="30" value="${escapeHtml(examSchedule.dates[1])}" /></label></div><div class="document-exam-editor-rows">${examSchedule.rows.map((row, rowIndex) => `<section><label>堂次<input data-exam-row="${rowIndex}" data-exam-col="0" maxlength="20" value="${escapeHtml(row[0])}" /></label><label>時間<input data-exam-row="${rowIndex}" data-exam-col="1" maxlength="30" value="${escapeHtml(row[1])}" /></label><label>第一天考科<input data-exam-row="${rowIndex}" data-exam-col="2" maxlength="80" value="${escapeHtml(row[2])}" /></label><label>第二天考科<input data-exam-row="${rowIndex}" data-exam-col="3" maxlength="80" value="${escapeHtml(row[3])}" /></label></section>`).join("")}</div><button type="button" id="save-document-exam">儲存修改</button><button type="button" id="cancel-document-exam" class="secondary">取消</button><p id="document-exam-message" class="field-note" role="status"></p>`;
+  examEditor.innerHTML = `<h3>編修考程表</h3><label>標題<input data-exam-title maxlength="120" value="${escapeHtml(examSchedule.title)}" /></label><div class="document-exam-editor-dates"><label>第一天日期（月／日）<input data-exam-date="0" inputmode="numeric" maxlength="10" placeholder="例如：10/13" value="${escapeHtml(examDateInput(examSchedule.dates[0]))}" /></label><label>第二天日期（月／日）<input data-exam-date="1" inputmode="numeric" maxlength="10" placeholder="例如：10/14" value="${escapeHtml(examDateInput(examSchedule.dates[1]))}" /></label></div><p class="field-note">只需輸入月／日，儲存後會自動補上正確星期。</p><div class="document-exam-editor-rows">${examSchedule.rows.map((row, rowIndex) => `<section><label>堂次<input data-exam-row="${rowIndex}" data-exam-col="0" maxlength="20" value="${escapeHtml(row[0])}" /></label><label>時間<input data-exam-row="${rowIndex}" data-exam-col="1" maxlength="30" value="${escapeHtml(row[1])}" /></label><label>第一天考科<input data-exam-row="${rowIndex}" data-exam-col="2" maxlength="80" value="${escapeHtml(row[2])}" /></label><label>第二天考科<input data-exam-row="${rowIndex}" data-exam-col="3" maxlength="80" value="${escapeHtml(row[3])}" /></label></section>`).join("")}</div><button type="button" id="save-document-exam">儲存修改</button><button type="button" id="cancel-document-exam" class="secondary">取消</button><p id="document-exam-message" class="field-note" role="status"></p>`;
   examCopies.after(examEditor);
   panel.querySelectorAll("[data-document-view]").forEach((button) => { button.onclick = () => { activeDocumentView = button.dataset.documentView; renderDocuments(); }; });
   panel.querySelector("#edit-document-calendar").onclick = () => { panel.querySelector("#document-calendar-editor").hidden = false; panel.querySelector("#edit-document-calendar").hidden = true; };
@@ -536,8 +544,9 @@ function renderDocuments() {
   panel.querySelector("#cancel-document-exam").onclick = () => renderDocuments();
   panel.querySelector("#save-document-exam").onclick = async () => {
     const message = panel.querySelector("#document-exam-message");
-    const next = { title: panel.querySelector("[data-exam-title]").value.trim(), dates: [panel.querySelector("[data-exam-date='0']").value.trim(), panel.querySelector("[data-exam-date='1']").value.trim()], rows: examSchedule.rows.map((row, rowIndex) => row.map((value, columnIndex) => panel.querySelector(`[data-exam-row="${rowIndex}"][data-exam-col="${columnIndex}"]`).value.trim())) };
-    if (!next.title || next.dates.some((date) => !date) || next.rows.some((row) => row.some((value) => !value))) { message.textContent = "請完整填寫所有欄位。"; return; }
+    const next = { title: panel.querySelector("[data-exam-title]").value.trim(), dates: [formatExamDate(panel.querySelector("[data-exam-date='0']").value), formatExamDate(panel.querySelector("[data-exam-date='1']").value)], rows: examSchedule.rows.map((row, rowIndex) => row.map((value, columnIndex) => panel.querySelector(`[data-exam-row="${rowIndex}"][data-exam-col="${columnIndex}"]`).value.trim())) };
+    if (!next.title || next.dates.some((date) => !date)) { message.textContent = "日期請以「月／日」輸入，例如：10/13。"; return; }
+    if (next.rows.some((row) => row.some((value) => !value))) { message.textContent = "請完整填寫所有考程欄位。"; return; }
     message.textContent = "儲存中…";
     const storedExam = { ...next, rows: next.rows.map(([period, time, firstDay, secondDay]) => ({ period, time, firstDay, secondDay })) };
     try { await setDoc(doc(db, "classAffairsConfig", "teacherDocuments"), { exam: storedExam, updatedAt: serverTimestamp() }, { merge: true }); documentExamSchedule = next; renderDocuments(); } catch (exception) { message.textContent = `儲存失敗：${exception.message}`; }
