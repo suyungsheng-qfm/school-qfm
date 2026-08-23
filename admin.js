@@ -53,6 +53,7 @@ const SOURCE_DOCUMENT_CALENDAR_EVENTS = {
   21: "1/18 運動會預演\n1/19 運動會\n1/20 休業式",
 };
 const DOCUMENT_CALENDAR_SOURCE_VERSION = 2;
+const DOCUMENT_CALENDAR_HOLIDAYS = new Set(["9/25", "9/28", "10/9", "10/29", "12/25", "1/1"]);
 const DOCUMENT_CALENDAR_TITLE = "前峰國中 115 學年度第一學期 八年級行事曆";
 const DOCUMENT_EXAM_SCHEDULE = {
   title: "前峰國中 115 學年度第一學期 第一次段考時程表",
@@ -461,7 +462,7 @@ function renderDocuments() {
     const cells = days.map((day, dayIndex) => {
       const date = new Date(2026, 7, 23 + index * 7 + dayIndex);
       const key = `${date.getMonth() + 1}/${date.getDate()}`;
-      return `<td class="${dayIndex === 0 || dayIndex === 6 ? "is-weekend" : ""}${eventDays.has(key) ? " has-event" : ""}">${day}</td>`;
+      return `<td class="${dayIndex === 0 || dayIndex === 6 ? "is-weekend" : ""}${eventDays.has(key) ? " has-event" : ""}${DOCUMENT_CALENDAR_HOLIDAYS.has(key) ? " is-holiday" : ""}">${day}</td>`;
     }).join("");
     return `<tr>${monthCell}<th scope="row">${week}</th>${cells}<td class="document-calendar-events">${documentEventText(documentCalendarEvents[index] || "")}</td></tr>`;
   }).join("");
@@ -542,6 +543,7 @@ function printDocument(kind) {
   const copyGrid = isCalendar ? "grid-template-columns:1fr 1fr;height:200mm;gap:3mm" : "grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;height:270mm;column-gap:3mm;row-gap:7mm";
   const printStyles = `@page{size:A4 ${pageSize};margin:${isCalendar ? "3mm" : "7mm"}}*{box-sizing:border-box}body{margin:0;color:#000;font-family:"Microsoft JhengHei",sans-serif}.copies{display:grid;${copyGrid}}.copies section{display:grid;grid-template-rows:auto 1fr;min-height:0}.copies h3{margin:0 0 2mm;text-align:center;font-size:${isCalendar ? "15" : "8.8"}pt;font-weight:900;line-height:1.2}.document-table-wrap{overflow:visible;border:1px solid #000}.document-calendar-table,.document-exam table{width:100%;height:100%;border-collapse:collapse;table-layout:fixed;color:#000}.document-calendar-table th,.document-calendar-table td{border:1px solid #000;padding:1px;text-align:center;font-size:5.3pt;line-height:1.05}.document-calendar-table thead tr:first-child th{font-size:9.5pt;font-weight:900}.document-calendar-table thead tr:nth-child(2) th{font-size:6.2pt}.document-calendar-table tbody tr{height:${isCalendar ? "8.4mm" : "7.5mm"}}.document-calendar-table th:first-child{width:7%}.document-calendar-table th:nth-child(2){width:8%}.document-calendar-table th:last-child{width:56%}.document-calendar-events{text-align:left!important;font-size:5.8pt!important;line-height:1.16}.calendar-event-separator{color:#007f8b;font-weight:900}.document-exam th,.document-exam td{border:1px solid #000;padding:1px;text-align:center;font-size:8.5pt;line-height:1.12}.document-exam th{font-weight:900}.document-exam table th:first-child{width:13%}.document-exam table th:nth-child(2){width:18%}.document-exam td:nth-child(2){white-space:nowrap;line-height:1.15}.document-exam small{display:block;font-size:7.3pt}.document-exam .is-lunch th,.document-exam .is-lunch td{font-weight:900}`;
   const examPrintStyles = `.document-exam-table{width:100%;height:100%;border-collapse:collapse;table-layout:fixed;color:#000}.document-exam-table th,.document-exam-table td{border:1px solid #000!important;padding:1px;text-align:center;font-size:8.5pt;line-height:1.12}.document-exam-table th{font-weight:900}.document-exam-table th:first-child{width:13%}.document-exam-table th:nth-child(2){width:18%}.document-exam-table thead th:nth-child(3),.document-exam-table thead th:nth-child(4){white-space:nowrap;font-size:7.2pt}.document-exam-table td:nth-child(2){white-space:nowrap;line-height:1.15}.document-exam-table strong{display:block;font-size:10.5pt;line-height:1.05}.document-exam-table .exam-subject-detail{display:block;font-size:7.3pt;line-height:1.08}.document-exam-table small{display:block;font-size:7.3pt}.document-exam-table .is-lunch th,.document-exam-table .is-lunch td{font-weight:900}`;
+  const calendarPrintStyles = `.document-calendar-table .has-event{text-decoration:underline;text-decoration-color:#007f8b;text-decoration-thickness:1.5px;text-underline-offset:2px;font-weight:900}.document-calendar-table .is-holiday{background:#ffebee!important;color:#b42318;font-weight:900}`;
   const printFrame = document.createElement("iframe");
   printFrame.title = "列印文件";
   printFrame.setAttribute("aria-hidden", "true");
@@ -549,7 +551,7 @@ function printDocument(kind) {
   const originalPageTitle = document.title;
   document.title = title;
   printFrame.onload = () => { const frameWindow = printFrame.contentWindow; if (!frameWindow) return; frameWindow.onafterprint = () => { document.title = originalPageTitle; printFrame.remove(); }; window.setTimeout(() => { frameWindow.focus(); frameWindow.print(); }, 180); };
-  printFrame.srcdoc = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${printStyles}${examPrintStyles}</style></head><body><main class="copies">${copies.innerHTML}</main></body></html>`;
+  printFrame.srcdoc = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${printStyles}${examPrintStyles}${calendarPrintStyles}</style></head><body><main class="copies">${copies.innerHTML}</main></body></html>`;
   document.body.append(printFrame);
 }
 
