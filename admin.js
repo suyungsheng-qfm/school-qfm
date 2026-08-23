@@ -19,6 +19,7 @@ let classAffairsStatisticsSourceId = "";
 let classAffairsView = "overview";
 let documentCalendarEvents = {};
 let activeDocumentView = "calendar";
+let documentExamSchedule = null;
 
 const DOCUMENT_CALENDAR_ROWS = [
   ["8月", "開學準備週", [23, 24, 25, 26, 27, 28, 29]], ["8月", "一", [30, 31, 1, 2, 3, 4, 5]],
@@ -32,7 +33,7 @@ const DEFAULT_DOCUMENT_CALENDAR_EVENTS = {
   0: "8/28 全校返校日", 1: "8/31 開學\n9/1～9/2、9/4 補考\n9/3（午休）全校幹部訓練", 2: "9/7 第8節輔導課、學習扶助開始\n9/11 幹部訓練・租稅講座", 3: "9/14 SH150 活動開始\n9/18 親師座談", 4: "9/21 防震防災演習\n9/23 數學作業抽查", 5: "10/2 中秋節放假", 7: "10/13～10/14 第一次段考", 8: "10/20～10/21 第一次段考\n10/22 服務學習（早自修）", 9: "10/26～10/30 校內國語文競賽\n10/28 自然作業抽查", 10: "11/4 流感疫苗施打\n11/4 歷史作業抽查", 11: "11/9 八年級職業試探（上午，801～805）\n11/12 聯絡簿抽查（八年級）", 12: "11/16 八年級職業試探（上午，806～810）\n11/16～11/20 運動會預賽\n11/18 地理作業抽查", 14: "12/2～12/3 第二次段考\n12/4 服務學習（早自修）", 15: "12/9 國文作業抽查", 16: "12/17 校慶預演\n12/18 校慶運動會", 17: "12/23 公民作業抽查", 18: "1/1 童軍露營行前說明會", 19: "1/4 開國記念日放假\n1/5～1/7 八年級童軍露營", 20: "1/15 八年級第8節輔導課結束", 21: "1/20～1/22 第三次段考暨非會考科目期末考\n1/22 休業式",
 };
 const DOCUMENT_EXAM_SCHEDULE = {
-  title: "高雄市立前峰國民中學 115 學年度第一學期 第一次段考測驗科目及時程表",
+  title: "前峰國中 115 學年度第一學期 第一次段考時程表",
   dates: ["5/9（星期二）", "5/10（星期三）"],
   rows: [["第一節", "8：20－9：05", "公民 09", "科技 16"], ["第二節", "9：15－10：00", "自習", "地理 07"], ["第三節", "10：15－11：00", "英文（聽力與閱讀） 02", "自習"], ["第四節", "11：10－11：55", "歷史 08", "數學 03"], ["午休時間", "午休時間", "午休時間", "午休時間"], ["第五節", "13：20－14：05", "英文寫作", "作文"], ["第六節", "14：15－15：00", "自習", "自習"], ["第七節", "15：10－15：55", "自然 04", "國文 01"]],
 };
@@ -398,7 +399,7 @@ function setupSettingsPanels() {
 function chooseSettingsPanel(panel) { setupSettingsPanels(); document.querySelectorAll("[data-settings-panel]").forEach((section) => section.classList.toggle("is-active", section.dataset.settingsPanel === panel)); window.scrollTo({ top: 0, behavior: "smooth" }); }
 function documentEventText(value = "") { return escapeHtml(value).replace(/\n/g, "<br>"); }
 function documentEventDays() { return new Set(Object.values(documentCalendarEvents).flatMap((value) => String(value).match(/\b\d{1,2}\/\d{1,2}\b/g) || [])); }
-function formatDocumentExam(value) { const match = String(value).match(/^(.*?)\s+(\d{2})$/); return match ? `${escapeHtml(match[1])}<small>教室 ${match[2]}</small>` : escapeHtml(value); }
+function formatDocumentExam(value) { const match = String(value).match(/^(.*?)\s+(\d{2})$/); return match ? `${escapeHtml(match[1])}<small>代碼：${match[2]}</small>` : escapeHtml(value); }
 function setupDocumentsPanel() {
   if (document.getElementById("admin-documents")) return;
   const panel = document.createElement("article");
@@ -419,6 +420,7 @@ function setupDocumentsPanel() {
 function renderDocuments() {
   const panel = document.getElementById("admin-documents");
   if (!panel) return;
+  const examSchedule = documentExamSchedule || { ...DOCUMENT_EXAM_SCHEDULE, dates: [...DOCUMENT_EXAM_SCHEDULE.dates], rows: DOCUMENT_EXAM_SCHEDULE.rows.map((row) => [...row]) };
   const monthCounts = DOCUMENT_CALENDAR_ROWS.reduce((counts, [month]) => ({ ...counts, [month]: (counts[month] || 0) + 1 }), {});
   const shownMonths = new Set();
   const eventDays = documentEventDays();
@@ -433,7 +435,7 @@ function renderDocuments() {
     return `<tr>${monthCell}<th scope="row">${week}</th>${cells}<td class="document-calendar-events">${documentEventText(documentCalendarEvents[index] || "")}</td></tr>`;
   }).join("");
   const editorRows = DOCUMENT_CALENDAR_ROWS.map(([month, week], index) => `<label><span>${month}・第 ${week} 週</span><textarea data-document-calendar-event="${index}" rows="2" maxlength="500">${escapeHtml(documentCalendarEvents[index] || "")}</textarea></label>`).join("");
-  const examRows = DOCUMENT_EXAM_SCHEDULE.rows.map(([period, time, first, second]) => `<tr class="${period === "午休時間" ? "is-lunch" : ""}"><th scope="row">${period}</th><td>${time}</td><td>${formatDocumentExam(first)}</td><td>${formatDocumentExam(second)}</td></tr>`).join("");
+  const examRows = examSchedule.rows.map(([period, time, first, second]) => `<tr class="${period === "午休時間" ? "is-lunch" : ""}"><th scope="row">${period}</th><td>${time}</td><td>${formatDocumentExam(first)}</td><td>${formatDocumentExam(second)}</td></tr>`).join("");
   panel.innerHTML = `<p class="eyebrow">DOCUMENTS</p><h2>文件</h2><p class="field-note">整合學期行事與段考時程，可在手機上查看或列印。</p><div class="document-tabs" role="tablist"><button type="button" data-document-view="calendar" class="${activeDocumentView === "calendar" ? "is-selected" : ""}">行事曆</button><button type="button" data-document-view="exam" class="${activeDocumentView === "exam" ? "is-selected" : ""}">考程表</button></div><section class="document-view ${activeDocumentView === "calendar" ? "is-active" : ""}" data-document-section="calendar"><div class="document-heading"><div><h3>115 學年度第一學期 八年級行事曆</h3><p>週表式學期行事</p></div><div><button type="button" class="secondary" id="edit-document-calendar">編修行事</button><button type="button" id="print-document-calendar">列印</button></div></div><div class="document-table-wrap"><table class="document-calendar-table"><thead><tr><th rowspan="2">月份</th><th rowspan="2">週次</th><th colspan="7">星期</th><th rowspan="2">重要行事</th></tr><tr><th>日</th><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th></tr></thead><tbody>${calendarRows}</tbody></table></div><section id="document-calendar-editor" class="document-calendar-editor" hidden><h3>編修重要行事</h3><p class="field-note">每週一格，修改後會儲存至 Firebase，其他管理者登入時也會看到。</p><div>${editorRows}</div><button type="button" id="save-document-calendar">儲存修改</button><button type="button" id="cancel-document-calendar" class="secondary">取消</button><p id="document-calendar-message" class="field-note" role="status"></p></section></section><section class="document-view ${activeDocumentView === "exam" ? "is-active" : ""}" data-document-section="exam"><div class="document-heading"><div><h3>考程表</h3><p>第一次段考時程</p></div><button type="button" id="print-document-exam">列印</button></div><section class="document-exam"><h3>${escapeHtml(DOCUMENT_EXAM_SCHEDULE.title)}</h3><div class="document-table-wrap"><table><thead><tr><th>堂次</th><th>時間</th><th>${DOCUMENT_EXAM_SCHEDULE.dates.map(escapeHtml).join("</th><th>")}</th></tr></thead><tbody>${examRows}</tbody></table></div></section></section>`;
   const calendarScreen = panel.querySelector(".document-calendar-table").closest(".document-table-wrap");
   calendarScreen.classList.add("document-calendar-screen");
@@ -443,10 +445,26 @@ function renderDocuments() {
   calendarScreen.after(calendarCopies);
   const examScreen = panel.querySelector(".document-exam table").closest(".document-table-wrap");
   examScreen.classList.add("document-exam-screen");
+  panel.querySelector(".document-exam h3").textContent = examSchedule.title;
+  const examHeaderCells = examScreen.querySelectorAll("thead th");
+  examHeaderCells[2].textContent = examSchedule.dates[0];
+  examHeaderCells[3].textContent = examSchedule.dates[1];
   const examCopies = document.createElement("div");
   examCopies.className = "document-exam-print-copies";
-  for (let copy = 0; copy < 4; copy += 1) { const page = document.createElement("section"); const tableCopy = examScreen.cloneNode(true); tableCopy.classList.remove("document-exam-screen"); page.innerHTML = `<h3>${escapeHtml(DOCUMENT_EXAM_SCHEDULE.title)}</h3>`; page.append(tableCopy); examCopies.append(page); }
+  for (let copy = 0; copy < 4; copy += 1) { const page = document.createElement("section"); const tableCopy = examScreen.cloneNode(true); tableCopy.classList.remove("document-exam-screen"); page.innerHTML = `<h3>${escapeHtml(examSchedule.title)}</h3>`; page.append(tableCopy); examCopies.append(page); }
   examScreen.after(examCopies);
+  const editExam = document.createElement("button");
+  editExam.type = "button";
+  editExam.id = "edit-document-exam";
+  editExam.className = "secondary";
+  editExam.textContent = "編修考程";
+  panel.querySelector("#print-document-exam").before(editExam);
+  const examEditor = document.createElement("section");
+  examEditor.id = "document-exam-editor";
+  examEditor.className = "document-exam-editor";
+  examEditor.hidden = true;
+  examEditor.innerHTML = `<h3>編修考程表</h3><label>標題<input data-exam-title maxlength="120" value="${escapeHtml(examSchedule.title)}" /></label><div class="document-exam-editor-dates"><label>第一天日期<input data-exam-date="0" maxlength="30" value="${escapeHtml(examSchedule.dates[0])}" /></label><label>第二天日期<input data-exam-date="1" maxlength="30" value="${escapeHtml(examSchedule.dates[1])}" /></label></div><div class="document-exam-editor-rows">${examSchedule.rows.map((row, rowIndex) => `<section><label>堂次<input data-exam-row="${rowIndex}" data-exam-col="0" maxlength="20" value="${escapeHtml(row[0])}" /></label><label>時間<input data-exam-row="${rowIndex}" data-exam-col="1" maxlength="30" value="${escapeHtml(row[1])}" /></label><label>第一天考科<input data-exam-row="${rowIndex}" data-exam-col="2" maxlength="80" value="${escapeHtml(row[2])}" /></label><label>第二天考科<input data-exam-row="${rowIndex}" data-exam-col="3" maxlength="80" value="${escapeHtml(row[3])}" /></label></section>`).join("")}</div><button type="button" id="save-document-exam">儲存修改</button><button type="button" id="cancel-document-exam" class="secondary">取消</button><p id="document-exam-message" class="field-note" role="status"></p>`;
+  examCopies.after(examEditor);
   panel.querySelectorAll("[data-document-view]").forEach((button) => { button.onclick = () => { activeDocumentView = button.dataset.documentView; renderDocuments(); }; });
   panel.querySelector("#edit-document-calendar").onclick = () => { panel.querySelector("#document-calendar-editor").hidden = false; panel.querySelector("#edit-document-calendar").hidden = true; };
   panel.querySelector("#cancel-document-calendar").onclick = () => renderDocuments();
@@ -458,10 +476,20 @@ function renderDocuments() {
   };
   panel.querySelector("#print-document-calendar").onclick = () => printDocument("calendar");
   panel.querySelector("#print-document-exam").onclick = () => printDocument("exam");
+  editExam.onclick = () => { examEditor.hidden = false; editExam.hidden = true; };
+  panel.querySelector("#cancel-document-exam").onclick = () => renderDocuments();
+  panel.querySelector("#save-document-exam").onclick = async () => {
+    const message = panel.querySelector("#document-exam-message");
+    const next = { title: panel.querySelector("[data-exam-title]").value.trim(), dates: [panel.querySelector("[data-exam-date='0']").value.trim(), panel.querySelector("[data-exam-date='1']").value.trim()], rows: examSchedule.rows.map((row, rowIndex) => row.map((value, columnIndex) => panel.querySelector(`[data-exam-row="${rowIndex}"][data-exam-col="${columnIndex}"]`).value.trim())) };
+    if (!next.title || next.dates.some((date) => !date) || next.rows.some((row) => row.some((value) => !value))) { message.textContent = "請完整填寫所有欄位。"; return; }
+    message.textContent = "儲存中…";
+    try { await setDoc(doc(db, "classAffairsConfig", "teacherDocuments"), { exam: next, updatedAt: serverTimestamp() }, { merge: true }); documentExamSchedule = next; renderDocuments(); } catch (exception) { message.textContent = `儲存失敗：${exception.message}`; }
+  };
 }
 async function loadDocumentCalendar() {
   documentCalendarEvents = { ...DEFAULT_DOCUMENT_CALENDAR_EVENTS };
-  try { const snapshot = await getDoc(doc(db, "classAffairsConfig", "teacherDocuments")); if (snapshot.exists() && snapshot.data().events) documentCalendarEvents = { ...documentCalendarEvents, ...snapshot.data().events }; } catch (exception) { console.warn("無法讀取文件行事曆", exception); }
+  documentExamSchedule = { ...DOCUMENT_EXAM_SCHEDULE, dates: [...DOCUMENT_EXAM_SCHEDULE.dates], rows: DOCUMENT_EXAM_SCHEDULE.rows.map((row) => [...row]) };
+  try { const snapshot = await getDoc(doc(db, "classAffairsConfig", "teacherDocuments")); if (snapshot.exists()) { const data = snapshot.data(); if (data.events) documentCalendarEvents = { ...documentCalendarEvents, ...data.events }; if (data.exam?.title && Array.isArray(data.exam?.dates) && Array.isArray(data.exam?.rows)) documentExamSchedule = data.exam; } } catch (exception) { console.warn("無法讀取文件資料", exception); }
   renderDocuments();
 }
 function printDocument(kind) { let style = document.getElementById("document-print-page-size"); if (!style) { style = document.createElement("style"); style.id = "document-print-page-size"; document.head.append(style); } style.textContent = `@page{size:A4 ${kind === "calendar" ? "landscape" : "portrait"};margin:7mm}`; document.body.classList.add("printing-documents", `printing-document-${kind}`); window.print(); }
