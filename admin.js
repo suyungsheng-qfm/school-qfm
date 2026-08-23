@@ -500,8 +500,19 @@ async function loadDocumentCalendar() {
   try { const snapshot = await getDoc(doc(db, "classAffairsConfig", "teacherDocuments")); if (snapshot.exists()) { const data = snapshot.data(); if (data.events) documentCalendarEvents = { ...documentCalendarEvents, ...data.events }; if (data.exam?.title && Array.isArray(data.exam?.dates) && Array.isArray(data.exam?.rows)) documentExamSchedule = data.exam; } } catch (exception) { console.warn("無法讀取文件資料", exception); }
   renderDocuments();
 }
-function printDocument(kind) { let style = document.getElementById("document-print-page-size"); if (!style) { style = document.createElement("style"); style.id = "document-print-page-size"; document.head.append(style); } style.textContent = `@page{size:A4 ${kind === "calendar" ? "landscape" : "portrait"};margin:7mm}`; document.body.classList.add("printing-documents", `printing-document-${kind}`); window.print(); }
-window.addEventListener("afterprint", () => { document.body.classList.remove("printing-documents", "printing-document-calendar", "printing-document-exam"); document.getElementById("document-print-page-size")?.remove(); });
+function printDocument(kind) {
+  const isCalendar = kind === "calendar";
+  const copies = document.querySelector(isCalendar ? ".document-calendar-print-copies" : ".document-exam-print-copies");
+  const printWindow = window.open("", "_blank", "width=1100,height=800");
+  if (!printWindow || !copies) { alert("無法開啟列印頁面，請確認瀏覽器允許彈出視窗。 "); return; }
+  const title = isCalendar ? DOCUMENT_CALENDAR_TITLE : (documentExamSchedule || DOCUMENT_EXAM_SCHEDULE).title;
+  const pageSize = isCalendar ? "landscape" : "portrait";
+  const copyGrid = isCalendar ? "grid-template-columns:1fr 1fr;height:180mm;gap:3mm" : "grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;height:270mm;column-gap:3mm;row-gap:7mm";
+  const printStyles = `@page{size:A4 ${pageSize};margin:7mm}*{box-sizing:border-box}body{margin:0;color:#000;font-family:"Microsoft JhengHei",sans-serif}.copies{display:grid;${copyGrid}}.copies section{display:grid;grid-template-rows:auto 1fr;min-height:0}.copies h3{margin:0 0 2mm;text-align:center;font-size:${isCalendar ? "11" : "8.8"}pt;line-height:1.2}.document-table-wrap{overflow:visible;border:1px solid #000}.document-calendar-table,.document-exam table{width:100%;height:100%;border-collapse:collapse;table-layout:fixed;color:#000}.document-calendar-table th,.document-calendar-table td{border:1px solid #000;padding:1px;text-align:center;font-size:5.3pt;line-height:1.05}.document-calendar-table thead th{font-size:6.2pt}.document-calendar-table th:first-child{width:54px}.document-calendar-table th:nth-child(2){width:70px}.document-calendar-table th:last-child{width:39%}.document-calendar-events{text-align:left!important;font-size:5.8pt!important;line-height:1.16}.document-exam th,.document-exam td{border:1px solid #000;padding:1px;text-align:center;font-size:8.5pt;line-height:1.12}.document-exam th{font-weight:900}.document-exam table th:first-child{width:13%}.document-exam table th:nth-child(2){width:18%}.document-exam td:nth-child(2){white-space:nowrap;line-height:1.15}.document-exam small{display:block;font-size:7.3pt}.document-exam .is-lunch th,.document-exam .is-lunch td{font-weight:900}`;
+  printWindow.onload = () => { printWindow.focus(); printWindow.print(); };
+  printWindow.document.write(`<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${printStyles}</style></head><body><main class="copies">${copies.innerHTML}</main></body></html>`);
+  printWindow.document.close();
+}
 
 function chooseAdminPage(page) {
   document.querySelectorAll(".admin-feature").forEach((section) => section.classList.toggle("is-active", section.dataset.adminPage === page));
