@@ -421,8 +421,8 @@ function setupSettingsPanels() {
 function chooseSettingsPanel(panel) { setupSettingsPanels(); document.querySelectorAll("[data-settings-panel]").forEach((section) => section.classList.toggle("is-active", section.dataset.settingsPanel === panel)); window.scrollTo({ top: 0, behavior: "smooth" }); }
 function documentEventText(value = "") { return escapeHtml(value).replace(/｜/g, "<span class=calendar-event-separator>｜</span>").replace(/\n/g, "<br>"); }
 function documentEventDays() { return new Set(Object.values(documentCalendarEvents).flatMap((value) => String(value).match(/\b\d{1,2}\/\d{1,2}\b/g) || [])); }
-function formatDocumentExam(value) { const match = String(value).match(/^(.*?)\s+(\d{2})$/); return match ? `${escapeHtml(match[1])}<small>代碼：${match[2]}</small>` : escapeHtml(value); }
-function formatDocumentTime(value) { const match = String(value).match(/^(.+?)[－-](.+)$/); return match ? `${escapeHtml(match[1])}～<br>${escapeHtml(match[2])}` : escapeHtml(value); }
+function formatDocumentExam(value) { const match = String(value).match(/^(.*?)\s+(\d{2})$/); return match ? `${escapeHtml(match[1])}<small>${match[2]}</small>` : escapeHtml(value); }
+function formatDocumentTime(value) { const match = String(value).match(/^(.+?)[－-](.+)$/); return match ? `${escapeHtml(match[1])}<br>${escapeHtml(match[2])}` : escapeHtml(value); }
 function setupDocumentsPanel() {
   if (document.getElementById("admin-documents")) return;
   const panel = document.createElement("article");
@@ -469,6 +469,7 @@ function renderDocuments() {
   calendarScreen.after(calendarCopies);
   const examScreen = panel.querySelector(".document-exam table").closest(".document-table-wrap");
   examScreen.classList.add("document-exam-screen");
+  examScreen.querySelector("table").classList.add("document-exam-table");
   panel.querySelector(".document-exam h3").textContent = examSchedule.title;
   const examHeaderCells = examScreen.querySelectorAll("thead th");
   examHeaderCells[0].textContent = "節次";
@@ -532,12 +533,13 @@ function printDocument(kind) {
   const pageSize = isCalendar ? "landscape" : "portrait";
   const copyGrid = isCalendar ? "grid-template-columns:1fr 1fr;height:180mm;gap:3mm" : "grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;height:270mm;column-gap:3mm;row-gap:7mm";
   const printStyles = `@page{size:A4 ${pageSize};margin:7mm}*{box-sizing:border-box}body{margin:0;color:#000;font-family:"Microsoft JhengHei",sans-serif}.copies{display:grid;${copyGrid}}.copies section{display:grid;grid-template-rows:auto 1fr;min-height:0}.copies h3{margin:0 0 2mm;text-align:center;font-size:${isCalendar ? "15" : "8.8"}pt;font-weight:900;line-height:1.2}.document-table-wrap{overflow:visible;border:1px solid #000}.document-calendar-table,.document-exam table{width:100%;height:100%;border-collapse:collapse;table-layout:fixed;color:#000}.document-calendar-table th,.document-calendar-table td{border:1px solid #000;padding:1px;text-align:center;font-size:5.3pt;line-height:1.05}.document-calendar-table thead tr:first-child th{font-size:9.5pt;font-weight:900}.document-calendar-table thead tr:nth-child(2) th{font-size:6.2pt}.document-calendar-table th:first-child{width:7%}.document-calendar-table th:nth-child(2){width:8%}.document-calendar-table th:last-child{width:56%}.document-calendar-events{text-align:left!important;font-size:5.8pt!important;line-height:1.16}.calendar-event-separator{color:#007f8b;font-weight:900}.document-exam th,.document-exam td{border:1px solid #000;padding:1px;text-align:center;font-size:8.5pt;line-height:1.12}.document-exam th{font-weight:900}.document-exam table th:first-child{width:13%}.document-exam table th:nth-child(2){width:18%}.document-exam td:nth-child(2){white-space:nowrap;line-height:1.15}.document-exam small{display:block;font-size:7.3pt}.document-exam .is-lunch th,.document-exam .is-lunch td{font-weight:900}`;
+  const examPrintStyles = `.document-exam-table{width:100%;height:100%;border-collapse:collapse;table-layout:fixed;color:#000}.document-exam-table th,.document-exam-table td{border:1px solid #000!important;padding:1px;text-align:center;font-size:8.5pt;line-height:1.12}.document-exam-table th{font-weight:900}.document-exam-table th:first-child{width:13%}.document-exam-table th:nth-child(2){width:18%}.document-exam-table thead th:nth-child(3),.document-exam-table thead th:nth-child(4){white-space:nowrap;font-size:7.2pt}.document-exam-table td:nth-child(2){white-space:nowrap;line-height:1.15}.document-exam-table small{display:block;font-size:7.3pt}.document-exam-table .is-lunch th,.document-exam-table .is-lunch td{font-weight:900}`;
   const printFrame = document.createElement("iframe");
   printFrame.title = "列印文件";
   printFrame.setAttribute("aria-hidden", "true");
   printFrame.style.cssText = "position:fixed;left:-2px;bottom:-2px;width:1px;height:1px;border:0;opacity:0;pointer-events:none";
   printFrame.onload = () => { const frameWindow = printFrame.contentWindow; if (!frameWindow) return; frameWindow.onafterprint = () => printFrame.remove(); window.setTimeout(() => { frameWindow.focus(); frameWindow.print(); }, 180); };
-  printFrame.srcdoc = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${printStyles}</style></head><body><main class="copies">${copies.innerHTML}</main></body></html>`;
+  printFrame.srcdoc = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${printStyles}${examPrintStyles}</style></head><body><main class="copies">${copies.innerHTML}</main></body></html>`;
   document.body.append(printFrame);
 }
 
