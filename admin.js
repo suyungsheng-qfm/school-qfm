@@ -539,13 +539,14 @@ function renderDocuments() {
     const next = { title: panel.querySelector("[data-exam-title]").value.trim(), dates: [panel.querySelector("[data-exam-date='0']").value.trim(), panel.querySelector("[data-exam-date='1']").value.trim()], rows: examSchedule.rows.map((row, rowIndex) => row.map((value, columnIndex) => panel.querySelector(`[data-exam-row="${rowIndex}"][data-exam-col="${columnIndex}"]`).value.trim())) };
     if (!next.title || next.dates.some((date) => !date) || next.rows.some((row) => row.some((value) => !value))) { message.textContent = "請完整填寫所有欄位。"; return; }
     message.textContent = "儲存中…";
-    try { await setDoc(doc(db, "classAffairsConfig", "teacherDocuments"), { exam: next, updatedAt: serverTimestamp() }, { merge: true }); documentExamSchedule = next; renderDocuments(); } catch (exception) { message.textContent = `儲存失敗：${exception.message}`; }
+    const storedExam = { ...next, rows: next.rows.map(([period, time, firstDay, secondDay]) => ({ period, time, firstDay, secondDay })) };
+    try { await setDoc(doc(db, "classAffairsConfig", "teacherDocuments"), { exam: storedExam, updatedAt: serverTimestamp() }, { merge: true }); documentExamSchedule = next; renderDocuments(); } catch (exception) { message.textContent = `儲存失敗：${exception.message}`; }
   };
 }
 async function loadDocumentCalendar() {
   documentCalendarEvents = { ...SOURCE_DOCUMENT_CALENDAR_EVENTS };
   documentExamSchedule = { ...DOCUMENT_EXAM_SCHEDULE, dates: [...DOCUMENT_EXAM_SCHEDULE.dates], rows: DOCUMENT_EXAM_SCHEDULE.rows.map((row) => [...row]) };
-  try { const snapshot = await getDoc(doc(db, "classAffairsConfig", "teacherDocuments")); if (snapshot.exists()) { const data = snapshot.data(); if (data.events) { if (data.calendarSourceVersion === DOCUMENT_CALENDAR_SOURCE_VERSION) documentCalendarEvents = { ...documentCalendarEvents, ...data.events }; else Object.entries(data.events).forEach(([index, value]) => { if (value !== DEFAULT_DOCUMENT_CALENDAR_EVENTS[index]) documentCalendarEvents[index] = value; }); } if (data.exam?.title && Array.isArray(data.exam?.dates) && Array.isArray(data.exam?.rows)) documentExamSchedule = data.exam; } } catch (exception) { console.warn("無法讀取文件資料", exception); }
+  try { const snapshot = await getDoc(doc(db, "classAffairsConfig", "teacherDocuments")); if (snapshot.exists()) { const data = snapshot.data(); if (data.events) { if (data.calendarSourceVersion === DOCUMENT_CALENDAR_SOURCE_VERSION) documentCalendarEvents = { ...documentCalendarEvents, ...data.events }; else Object.entries(data.events).forEach(([index, value]) => { if (value !== DEFAULT_DOCUMENT_CALENDAR_EVENTS[index]) documentCalendarEvents[index] = value; }); } if (data.exam?.title && Array.isArray(data.exam?.dates) && Array.isArray(data.exam?.rows)) { const rows = data.exam.rows.map((row) => Array.isArray(row) ? row : [row.period, row.time, row.firstDay, row.secondDay]); if (rows.every((row) => row.length === 4 && row.every((value) => typeof value === "string"))) documentExamSchedule = { title: data.exam.title, dates: [...data.exam.dates], rows }; } } } catch (exception) { console.warn("無法讀取文件資料", exception); }
   renderDocuments();
 }
 function printDocument(kind) {
