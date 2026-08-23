@@ -435,6 +435,18 @@ function renderDocuments() {
   const editorRows = DOCUMENT_CALENDAR_ROWS.map(([month, week], index) => `<label><span>${month}・第 ${week} 週</span><textarea data-document-calendar-event="${index}" rows="2" maxlength="500">${escapeHtml(documentCalendarEvents[index] || "")}</textarea></label>`).join("");
   const examRows = DOCUMENT_EXAM_SCHEDULE.rows.map(([period, time, first, second]) => `<tr class="${period === "午休時間" ? "is-lunch" : ""}"><th scope="row">${period}</th><td>${time}</td><td>${formatDocumentExam(first)}</td><td>${formatDocumentExam(second)}</td></tr>`).join("");
   panel.innerHTML = `<p class="eyebrow">DOCUMENTS</p><h2>文件</h2><p class="field-note">整合學期行事與段考時程，可在手機上查看或列印。</p><div class="document-tabs" role="tablist"><button type="button" data-document-view="calendar" class="${activeDocumentView === "calendar" ? "is-selected" : ""}">行事曆</button><button type="button" data-document-view="exam" class="${activeDocumentView === "exam" ? "is-selected" : ""}">考程表</button></div><section class="document-view ${activeDocumentView === "calendar" ? "is-active" : ""}" data-document-section="calendar"><div class="document-heading"><div><h3>115 學年度第一學期 八年級行事曆</h3><p>週表式學期行事</p></div><div><button type="button" class="secondary" id="edit-document-calendar">編修行事</button><button type="button" id="print-document-calendar">列印</button></div></div><div class="document-table-wrap"><table class="document-calendar-table"><thead><tr><th rowspan="2">月份</th><th rowspan="2">週次</th><th colspan="7">星期</th><th rowspan="2">重要行事</th></tr><tr><th>日</th><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th></tr></thead><tbody>${calendarRows}</tbody></table></div><section id="document-calendar-editor" class="document-calendar-editor" hidden><h3>編修重要行事</h3><p class="field-note">每週一格，修改後會儲存至 Firebase，其他管理者登入時也會看到。</p><div>${editorRows}</div><button type="button" id="save-document-calendar">儲存修改</button><button type="button" id="cancel-document-calendar" class="secondary">取消</button><p id="document-calendar-message" class="field-note" role="status"></p></section></section><section class="document-view ${activeDocumentView === "exam" ? "is-active" : ""}" data-document-section="exam"><div class="document-heading"><div><h3>考程表</h3><p>第一次段考時程</p></div><button type="button" id="print-document-exam">列印</button></div><section class="document-exam"><h3>${escapeHtml(DOCUMENT_EXAM_SCHEDULE.title)}</h3><div class="document-table-wrap"><table><thead><tr><th>堂次</th><th>時間</th><th>${DOCUMENT_EXAM_SCHEDULE.dates.map(escapeHtml).join("</th><th>")}</th></tr></thead><tbody>${examRows}</tbody></table></div></section></section>`;
+  const calendarScreen = panel.querySelector(".document-calendar-table").closest(".document-table-wrap");
+  calendarScreen.classList.add("document-calendar-screen");
+  const calendarCopies = document.createElement("div");
+  calendarCopies.className = "document-calendar-print-copies";
+  for (let copy = 0; copy < 2; copy += 1) { const page = document.createElement("section"); const tableCopy = calendarScreen.cloneNode(true); tableCopy.classList.remove("document-calendar-screen"); page.innerHTML = "<h3>115 學年度第一學期 八年級行事曆</h3>"; page.append(tableCopy); calendarCopies.append(page); }
+  calendarScreen.after(calendarCopies);
+  const examScreen = panel.querySelector(".document-exam table").closest(".document-table-wrap");
+  examScreen.classList.add("document-exam-screen");
+  const examCopies = document.createElement("div");
+  examCopies.className = "document-exam-print-copies";
+  for (let copy = 0; copy < 4; copy += 1) { const page = document.createElement("section"); const tableCopy = examScreen.cloneNode(true); tableCopy.classList.remove("document-exam-screen"); page.innerHTML = `<h3>${escapeHtml(DOCUMENT_EXAM_SCHEDULE.title)}</h3>`; page.append(tableCopy); examCopies.append(page); }
+  examScreen.after(examCopies);
   panel.querySelectorAll("[data-document-view]").forEach((button) => { button.onclick = () => { activeDocumentView = button.dataset.documentView; renderDocuments(); }; });
   panel.querySelector("#edit-document-calendar").onclick = () => { panel.querySelector("#document-calendar-editor").hidden = false; panel.querySelector("#edit-document-calendar").hidden = true; };
   panel.querySelector("#cancel-document-calendar").onclick = () => renderDocuments();
@@ -452,8 +464,8 @@ async function loadDocumentCalendar() {
   try { const snapshot = await getDoc(doc(db, "classAffairsConfig", "teacherDocuments")); if (snapshot.exists() && snapshot.data().events) documentCalendarEvents = { ...documentCalendarEvents, ...snapshot.data().events }; } catch (exception) { console.warn("無法讀取文件行事曆", exception); }
   renderDocuments();
 }
-function printDocument(kind) { document.body.classList.add("printing-documents", `printing-document-${kind}`); window.print(); }
-window.addEventListener("afterprint", () => document.body.classList.remove("printing-documents", "printing-document-calendar", "printing-document-exam"));
+function printDocument(kind) { let style = document.getElementById("document-print-page-size"); if (!style) { style = document.createElement("style"); style.id = "document-print-page-size"; document.head.append(style); } style.textContent = `@page{size:A4 ${kind === "calendar" ? "landscape" : "portrait"};margin:7mm}`; document.body.classList.add("printing-documents", `printing-document-${kind}`); window.print(); }
+window.addEventListener("afterprint", () => { document.body.classList.remove("printing-documents", "printing-document-calendar", "printing-document-exam"); document.getElementById("document-print-page-size")?.remove(); });
 
 function chooseAdminPage(page) {
   document.querySelectorAll(".admin-feature").forEach((section) => section.classList.toggle("is-active", section.dataset.adminPage === page));
