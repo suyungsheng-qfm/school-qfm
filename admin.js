@@ -32,6 +32,27 @@ const DOCUMENT_CALENDAR_ROWS = [
 const DEFAULT_DOCUMENT_CALENDAR_EVENTS = {
   0: "8/28 全校返校日", 1: "8/31 開學\n9/1～9/2、9/4 補考\n9/3（午休）全校幹部訓練", 2: "9/7 第8節輔導課、學習扶助開始\n9/11 幹部訓練・租稅講座", 3: "9/14 SH150 活動開始\n9/18 親師座談", 4: "9/21 防震防災演習\n9/23 數學作業抽查", 5: "10/2 中秋節放假", 7: "10/13～10/14 第一次段考", 8: "10/20～10/21 第一次段考\n10/22 服務學習（早自修）", 9: "10/26～10/30 校內國語文競賽\n10/28 自然作業抽查", 10: "11/4 流感疫苗施打\n11/4 歷史作業抽查", 11: "11/9 八年級職業試探（上午，801～805）\n11/12 聯絡簿抽查（八年級）", 12: "11/16 八年級職業試探（上午，806～810）\n11/16～11/20 運動會預賽\n11/18 地理作業抽查", 14: "12/2～12/3 第二次段考\n12/4 服務學習（早自修）", 15: "12/9 國文作業抽查", 16: "12/17 校慶預演\n12/18 校慶運動會", 17: "12/23 公民作業抽查", 18: "1/1 童軍露營行前說明會", 19: "1/4 開國記念日放假\n1/5～1/7 八年級童軍露營", 20: "1/15 八年級第8節輔導課結束", 21: "1/20～1/22 第三次段考暨非會考科目期末考\n1/22 休業式",
 };
+const SOURCE_DOCUMENT_CALENDAR_EVENTS = {
+  0: "8/28 全校返校日",
+  1: "8/31 開學　｜　8/31～9/4 社團線上選填　｜　8/31（午休）資訊股長訓練\n9/1～9/2、9/4 補考\n9/3（午休）全校幹部訓練",
+  2: "9/7 第8節輔導課、學習扶助開始　｜　圖書館開始借還書　｜　社團名單公告\n9/8～9/9 社團更換\n9/11 登革熱防治宣導（班會）　｜　社團正式上課",
+  3: "9/14 SH150 活動開始　｜　防震防災預演\n9/18 HPV 疫苗第一劑　｜　親師座談",
+  4: "9/21 防震防災演習\n9/23 數學作業抽查",
+  7: "10/13～10/14 第一次段考",
+  9: "10/27～10/30 校內國語文競賽\n10/28 自然作業抽查",
+  10: "11/2 八年級職業試探（801～806，上午四節）\n11/4 歷史作業抽查",
+  11: "11/9 八年級職業試探（807～812，上午四節）",
+  12: "11/16 八年級職業試探（807～812，上午四節）\n11/18 地理作業抽查",
+  13: "11/25～11/26 第二次段考",
+  15: "12/7 國中英文單字競賽初賽　｜　12/7～12/11 運動會預賽週\n12/9 國文作業抽查\n12/10 國中英文單字競賽決賽",
+  16: "12/16 公民作業抽查",
+  17: "12/23 圖書館耶誕節活動\n12/24（升旗）八年級露營行前說明",
+  18: "12/29～12/31 八年級童軍露營\n12/30 英文作業抽查",
+  19: "1/8 第8節輔導課、學習扶助結束",
+  20: "1/11 圖書館停止借還書\n1/13～1/15 第三次段考暨非會考科目期末考",
+  21: "1/18 運動會預演\n1/19 運動會\n1/20 休業式",
+};
+const DOCUMENT_CALENDAR_SOURCE_VERSION = 2;
 const DOCUMENT_CALENDAR_TITLE = "前峰國中 115 學年度第一學期 八年級行事曆";
 const DOCUMENT_EXAM_SCHEDULE = {
   title: "前峰國中 115 學年度第一學期 第一次段考時程表",
@@ -398,7 +419,7 @@ function setupSettingsPanels() {
   document.querySelectorAll("[data-settings-target]").forEach((button) => { button.onclick = () => chooseSettingsPanel(button.dataset.settingsTarget); });
 }
 function chooseSettingsPanel(panel) { setupSettingsPanels(); document.querySelectorAll("[data-settings-panel]").forEach((section) => section.classList.toggle("is-active", section.dataset.settingsPanel === panel)); window.scrollTo({ top: 0, behavior: "smooth" }); }
-function documentEventText(value = "") { return escapeHtml(value).replace(/\n/g, "<br>"); }
+function documentEventText(value = "") { return escapeHtml(value).replace(/｜/g, "<span class=calendar-event-separator>｜</span>").replace(/\n/g, "<br>"); }
 function documentEventDays() { return new Set(Object.values(documentCalendarEvents).flatMap((value) => String(value).match(/\b\d{1,2}\/\d{1,2}\b/g) || [])); }
 function formatDocumentExam(value) { const match = String(value).match(/^(.*?)\s+(\d{2})$/); return match ? `${escapeHtml(match[1])}<small>代碼：${match[2]}</small>` : escapeHtml(value); }
 function formatDocumentTime(value) { const match = String(value).match(/^(.+?)[－-](.+)$/); return match ? `${escapeHtml(match[1])}～<br>${escapeHtml(match[2])}` : escapeHtml(value); }
@@ -480,7 +501,7 @@ function renderDocuments() {
     const message = panel.querySelector("#document-calendar-message");
     panel.querySelectorAll("[data-document-calendar-event]").forEach((field) => { documentCalendarEvents[field.dataset.documentCalendarEvent] = field.value.trim(); });
     message.textContent = "儲存中…";
-    try { await setDoc(doc(db, "classAffairsConfig", "teacherDocuments"), { events: documentCalendarEvents, updatedAt: serverTimestamp() }, { merge: true }); message.textContent = "已儲存。"; renderDocuments(); } catch (exception) { message.textContent = `儲存失敗：${exception.message}`; }
+    try { await setDoc(doc(db, "classAffairsConfig", "teacherDocuments"), { events: documentCalendarEvents, calendarSourceVersion: DOCUMENT_CALENDAR_SOURCE_VERSION, updatedAt: serverTimestamp() }, { merge: true }); message.textContent = "已儲存。"; renderDocuments(); } catch (exception) { message.textContent = `儲存失敗：${exception.message}`; }
   };
   const printCalendar = panel.querySelector("#print-document-calendar");
   printCalendar.textContent = "列印／另存 PDF";
@@ -498,9 +519,9 @@ function renderDocuments() {
   };
 }
 async function loadDocumentCalendar() {
-  documentCalendarEvents = { ...DEFAULT_DOCUMENT_CALENDAR_EVENTS };
+  documentCalendarEvents = { ...SOURCE_DOCUMENT_CALENDAR_EVENTS };
   documentExamSchedule = { ...DOCUMENT_EXAM_SCHEDULE, dates: [...DOCUMENT_EXAM_SCHEDULE.dates], rows: DOCUMENT_EXAM_SCHEDULE.rows.map((row) => [...row]) };
-  try { const snapshot = await getDoc(doc(db, "classAffairsConfig", "teacherDocuments")); if (snapshot.exists()) { const data = snapshot.data(); if (data.events) documentCalendarEvents = { ...documentCalendarEvents, ...data.events }; if (data.exam?.title && Array.isArray(data.exam?.dates) && Array.isArray(data.exam?.rows)) documentExamSchedule = data.exam; } } catch (exception) { console.warn("無法讀取文件資料", exception); }
+  try { const snapshot = await getDoc(doc(db, "classAffairsConfig", "teacherDocuments")); if (snapshot.exists()) { const data = snapshot.data(); if (data.events) { if (data.calendarSourceVersion === DOCUMENT_CALENDAR_SOURCE_VERSION) documentCalendarEvents = { ...documentCalendarEvents, ...data.events }; else Object.entries(data.events).forEach(([index, value]) => { if (value !== DEFAULT_DOCUMENT_CALENDAR_EVENTS[index]) documentCalendarEvents[index] = value; }); } if (data.exam?.title && Array.isArray(data.exam?.dates) && Array.isArray(data.exam?.rows)) documentExamSchedule = data.exam; } } catch (exception) { console.warn("無法讀取文件資料", exception); }
   renderDocuments();
 }
 function printDocument(kind) {
@@ -511,7 +532,7 @@ function printDocument(kind) {
   const title = isCalendar ? DOCUMENT_CALENDAR_TITLE : (documentExamSchedule || DOCUMENT_EXAM_SCHEDULE).title;
   const pageSize = isCalendar ? "landscape" : "portrait";
   const copyGrid = isCalendar ? "grid-template-columns:1fr 1fr;height:180mm;gap:3mm" : "grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;height:270mm;column-gap:3mm;row-gap:7mm";
-  const printStyles = `@page{size:A4 ${pageSize};margin:7mm}*{box-sizing:border-box}body{margin:0;color:#000;font-family:"Microsoft JhengHei",sans-serif}.copies{display:grid;${copyGrid}}.copies section{display:grid;grid-template-rows:auto 1fr;min-height:0}.copies h3{margin:0 0 2mm;text-align:center;font-size:${isCalendar ? "11" : "8.8"}pt;line-height:1.2}.document-table-wrap{overflow:visible;border:1px solid #000}.document-calendar-table,.document-exam table{width:100%;height:100%;border-collapse:collapse;table-layout:fixed;color:#000}.document-calendar-table th,.document-calendar-table td{border:1px solid #000;padding:1px;text-align:center;font-size:5.3pt;line-height:1.05}.document-calendar-table thead th{font-size:6.2pt}.document-calendar-table th:first-child{width:54px}.document-calendar-table th:nth-child(2){width:70px}.document-calendar-table th:last-child{width:39%}.document-calendar-events{text-align:left!important;font-size:5.8pt!important;line-height:1.16}.document-exam th,.document-exam td{border:1px solid #000;padding:1px;text-align:center;font-size:8.5pt;line-height:1.12}.document-exam th{font-weight:900}.document-exam table th:first-child{width:13%}.document-exam table th:nth-child(2){width:18%}.document-exam td:nth-child(2){white-space:nowrap;line-height:1.15}.document-exam small{display:block;font-size:7.3pt}.document-exam .is-lunch th,.document-exam .is-lunch td{font-weight:900}`;
+  const printStyles = `@page{size:A4 ${pageSize};margin:7mm}*{box-sizing:border-box}body{margin:0;color:#000;font-family:"Microsoft JhengHei",sans-serif}.copies{display:grid;${copyGrid}}.copies section{display:grid;grid-template-rows:auto 1fr;min-height:0}.copies h3{margin:0 0 2mm;text-align:center;font-size:${isCalendar ? "15" : "8.8"}pt;font-weight:900;line-height:1.2}.document-table-wrap{overflow:visible;border:1px solid #000}.document-calendar-table,.document-exam table{width:100%;height:100%;border-collapse:collapse;table-layout:fixed;color:#000}.document-calendar-table th,.document-calendar-table td{border:1px solid #000;padding:1px;text-align:center;font-size:5.3pt;line-height:1.05}.document-calendar-table thead th{font-size:6.2pt}.document-calendar-table th:first-child{width:54px}.document-calendar-table th:nth-child(2){width:70px}.document-calendar-table th:last-child{width:39%}.document-calendar-events{text-align:left!important;font-size:5.8pt!important;line-height:1.16}.calendar-event-separator{color:#007f8b;font-weight:900}.document-exam th,.document-exam td{border:1px solid #000;padding:1px;text-align:center;font-size:8.5pt;line-height:1.12}.document-exam th{font-weight:900}.document-exam table th:first-child{width:13%}.document-exam table th:nth-child(2){width:18%}.document-exam td:nth-child(2){white-space:nowrap;line-height:1.15}.document-exam small{display:block;font-size:7.3pt}.document-exam .is-lunch th,.document-exam .is-lunch td{font-weight:900}`;
   printWindow.document.write(`<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${printStyles}</style></head><body><main class="copies">${copies.innerHTML}</main></body></html>`);
   printWindow.document.close();
   window.setTimeout(() => { if (!printWindow.closed) { printWindow.focus(); printWindow.print(); } }, 450);
