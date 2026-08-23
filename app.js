@@ -1,7 +1,7 @@
 import { auth, configured, db } from "./firebase.js";
 import { onAuthStateChanged, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { collection, doc, increment, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js?v=71").then((registration) => registration.update()));
+if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js?v=72").then((registration) => registration.update()));
 
 const list = (id) => document.getElementById(id);
 const empty = () => document.getElementById("empty-template").content.cloneNode(true);
