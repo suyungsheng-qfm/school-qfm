@@ -12,11 +12,13 @@ let adminCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth()
 let adminCalendarEvents = [];
 let classAffairsTemplates = [];
 let classAffairsGroups = {};
+let classAffairsTimetable = {};
 let selectedClassAffairsDatasetId = "";
 let editingClassAffairRecordId = null;
 let editingClassAffairsDatasetId = null;
 let classAffairsStatisticsSourceId = "";
 let classAffairsView = "overview";
+let selectedTimetableClassCode = "801";
 let documentCalendarEvents = {};
 let activeDocumentView = "calendar";
 let documentExamSchedule = null;
@@ -224,6 +226,9 @@ async function renderTeacherStatus() {
 }
 
 const DEFAULT_CLASS_AFFAIRS_DATASET = { id: "roster", name: "班級名冊", fields: ["座號", "姓名", "OpenID 帳號"] };
+const CLASS_TIMETABLE_ID = "__class_timetable__";
+const TIMETABLE_DAYS = [{ key: "mon", label: "星期一" }, { key: "tue", label: "星期二" }, { key: "wed", label: "星期三" }, { key: "thu", label: "星期四" }, { key: "fri", label: "星期五" }];
+const TIMETABLE_PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
 function classAffairId() { return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`; }
 function activeClassAffairsDataset() { return classAffairsTemplates.find((dataset) => dataset.id === selectedClassAffairsDatasetId); }
 function legacyClassAffairsRecords(students = []) { return students.map((student, index) => ({ id: student.id || `legacy-${index}`, values: { "座號": String(student.seatNumber || ""), "姓名": student.name || "", "OpenID 帳號": student.openId || "" } })); }
@@ -277,12 +282,15 @@ async function renderClassAffairsAdmin() {
     await loadClassAffairsTemplates();
     const code = document.getElementById("class-affairs-code").value;
     const snapshot = await getDoc(doc(db, "classAffairs", code));
-    classAffairsGroups = normalizedClassAffairsGroups(snapshot.exists() ? snapshot.data() : {});
+    const classData = snapshot.exists() ? snapshot.data() : {};
+    classAffairsGroups = normalizedClassAffairsGroups(classData);
+    classAffairsTimetable = classData.timetable || {};
     const section = document.getElementById("admin-class-affairs"); const intro = section.querySelector("p:not(.eyebrow)"); section.querySelector("h2").textContent = "班務資料";
     let overview = document.getElementById("class-affairs-overview"); if (!overview) { overview = document.createElement("section"); overview.id = "class-affairs-overview"; overview.className = "class-affairs-overview"; document.querySelector("#admin-class-affairs .class-affairs-config").before(overview); }
-    const statistics = document.getElementById("class-affairs-statistics"); const config = document.querySelector("#admin-class-affairs .class-affairs-config"); const recordsPanel = document.querySelector("#admin-class-affairs .class-affairs-records");
-    if (classAffairsView === "overview") { selectedClassAffairsDatasetId = ""; overview.hidden = false; config.hidden = true; recordsPanel.hidden = true; if (statistics) statistics.hidden = true; overview.innerHTML = `<h3>班務資料</h3><p class="field-note">選擇已建立的資料組，或建立新的資料組。</p><div class="class-affairs-labels">${classAffairsTemplates.map((dataset) => `<button data-open-class-dataset="${dataset.id}">${escapeHtml(dataset.name)}</button>`).join("")}<button class="class-affairs-add" data-new-class-dataset="true">＋ 新增資料組</button></div>`; overview.querySelectorAll("[data-open-class-dataset]").forEach((button) => { button.onclick = () => { selectedClassAffairsDatasetId = button.dataset.openClassDataset; classAffairsView = "detail"; resetClassAffairsDatasetForm(); renderClassAffairsAdmin(); }; }); overview.querySelector("[data-new-class-dataset]").onclick = () => { selectedClassAffairsDatasetId = ""; classAffairsView = "new"; resetClassAffairsDatasetForm(); renderClassAffairsAdmin(); }; return; }
-    overview.hidden = true; config.hidden = false; const back = document.createElement("button"); back.type = "button"; back.className = "secondary class-affairs-back"; back.textContent = "‹ 返回班務資料"; if (!config.querySelector(".class-affairs-back")) config.prepend(back); config.querySelector(".class-affairs-back").onclick = () => { classAffairsView = "overview"; selectedClassAffairsDatasetId = ""; resetClassAffairsDatasetForm(); renderClassAffairsAdmin(); };
+    const statistics = document.getElementById("class-affairs-statistics"); const config = document.querySelector("#admin-class-affairs .class-affairs-config"); const recordsPanel = document.querySelector("#admin-class-affairs .class-affairs-records"); const timetablePanel = document.getElementById("class-affairs-timetable");
+    if (classAffairsView === "overview") { selectedClassAffairsDatasetId = ""; overview.hidden = false; config.hidden = true; recordsPanel.hidden = true; timetablePanel.hidden = true; if (statistics) statistics.hidden = true; overview.innerHTML = `<h3>班務資料</h3><p class="field-note">選擇已建立的資料組、班級課表，或建立新的資料組。</p><div class="class-affairs-labels"><button data-open-class-timetable="true">班級課表</button>${classAffairsTemplates.map((dataset) => `<button data-open-class-dataset="${dataset.id}">${escapeHtml(dataset.name)}</button>`).join("")}<button class="class-affairs-add" data-new-class-dataset="true">＋ 新增資料組</button></div>`; overview.querySelectorAll("[data-open-class-dataset]").forEach((button) => { button.onclick = () => { selectedClassAffairsDatasetId = button.dataset.openClassDataset; classAffairsView = "detail"; resetClassAffairsDatasetForm(); renderClassAffairsAdmin(); }; }); overview.querySelector("[data-open-class-timetable]").onclick = () => { selectedTimetableClassCode = code; classAffairsView = "timetable"; renderClassAffairsAdmin(); }; overview.querySelector("[data-new-class-dataset]").onclick = () => { selectedClassAffairsDatasetId = ""; classAffairsView = "new"; resetClassAffairsDatasetForm(); renderClassAffairsAdmin(); }; return; }
+    if (classAffairsView === "timetable") { overview.hidden = true; config.hidden = true; recordsPanel.hidden = true; if (statistics) statistics.hidden = true; timetablePanel.hidden = false; await loadClassAffairsTimetable(selectedTimetableClassCode); renderClassAffairsTimetableAdmin(); return; }
+    overview.hidden = true; config.hidden = false; recordsPanel.hidden = false; timetablePanel.hidden = true; const back = document.createElement("button"); back.type = "button"; back.className = "secondary class-affairs-back"; back.textContent = "‹ 返回班務資料"; if (!config.querySelector(".class-affairs-back")) config.prepend(back); config.querySelector(".class-affairs-back").onclick = () => { classAffairsView = "overview"; selectedClassAffairsDatasetId = ""; resetClassAffairsDatasetForm(); renderClassAffairsAdmin(); };
     document.getElementById("class-affairs-dataset").innerHTML = classAffairsTemplates.map((dataset) => `<option value="${dataset.id}" ${dataset.id === selectedClassAffairsDatasetId ? "selected" : ""}>${escapeHtml(dataset.name)}</option>`).join("");
     renderClassAffairsDatasetList();
     if (classAffairsView === "new") { recordsPanel.hidden = true; if (statistics) statistics.hidden = true; return; }
@@ -290,6 +298,16 @@ async function renderClassAffairsAdmin() {
   } catch (exception) { root.innerHTML = `<p class="field-note">讀取失敗：${escapeHtml(exception.message)}</p>`; }
 }
 function parseClassAffairsRows(text) { const delimiter = text.includes("\t") ? "\t" : text.includes(",") ? "," : text.includes("|") ? "|" : null; if (!delimiter) return text.split(/\r?\n/).map((line) => line.trim().split(/\s+/).filter(Boolean)).filter((row) => row.length); const rows = [[]]; let value = "", quoted = false; for (let index = 0; index < text.length; index += 1) { const character = text[index]; if (character === '"') { if (quoted && text[index + 1] === '"') { value += '"'; index += 1; } else quoted = !quoted; } else if (!quoted && character === delimiter) { rows.at(-1).push(value.trim()); value = ""; } else if (!quoted && (character === "\n" || character === "\r")) { if (character === "\r" && text[index + 1] === "\n") index += 1; rows.at(-1).push(value.trim()); value = ""; rows.push([]); } else value += character; } rows.at(-1).push(value.trim()); return rows.map((row) => { if (delimiter !== "|") return row; if (!row[0]) row.shift(); if (!row.at(-1)) row.pop(); return row; }).filter((row) => row.some(Boolean) && !row.every((cell) => /^:?-{2,}:?$/.test(cell))); }
+function normalizedTimetable(data = {}) { const source = data?.periods || {}; return Object.fromEntries(TIMETABLE_PERIODS.map((period) => [period, Object.fromEntries(TIMETABLE_DAYS.map((day) => [day.key, String(source[period]?.[day.key] || "")]))])); }
+function renderClassAffairsTimetableAdmin() {
+  const codeInput = document.getElementById("class-timetable-code"); const root = document.getElementById("class-timetable-editor"); const schedule = normalizedTimetable(classAffairsTimetable);
+  codeInput.value = selectedTimetableClassCode;
+  root.innerHTML = `<div class="class-timetable-wrap"><table class="class-timetable-table class-timetable-edit-table"><thead><tr><th>節次</th>${TIMETABLE_DAYS.map((day) => `<th>${day.label}</th>`).join("")}</tr></thead><tbody>${TIMETABLE_PERIODS.map((period) => `<tr><th>${period}</th>${TIMETABLE_DAYS.map((day) => `<td><input data-timetable-period="${period}" data-timetable-day="${day.key}" maxlength="100" value="${escapeHtml(schedule[period][day.key])}" aria-label="第 ${period} 節${day.label}" /></td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+async function loadClassAffairsTimetable(code) {
+  const snapshot = await getDoc(doc(db, "classAffairs", code));
+  classAffairsTimetable = snapshot.exists() ? snapshot.data().timetable || {} : {};
+}
 
 async function renderCalendarAdminList() {
   const root = document.getElementById("calendar-admin-list");
@@ -704,6 +722,23 @@ if (!configured) {
   document.getElementById("class-affairs-dataset").onchange = (event) => { selectedClassAffairsDatasetId = event.target.value; resetClassAffairsRecordForm(); renderClassAffairsRecordList(); };
   document.getElementById("class-affairs-record-cancel").onclick = resetClassAffairsRecordForm;
   document.getElementById("class-affairs-dataset-cancel").onclick = resetClassAffairsDatasetForm;
+  document.getElementById("class-affairs-timetable-back").onclick = () => { classAffairsView = "overview"; renderClassAffairsAdmin(); };
+  document.getElementById("class-timetable-code").onchange = async (event) => { selectedTimetableClassCode = event.target.value; await loadClassAffairsTimetable(selectedTimetableClassCode); renderClassAffairsTimetableAdmin(); };
+  document.getElementById("class-timetable-file").onchange = async (event) => { const file = event.target.files?.[0]; if (file) document.getElementById("class-timetable-data").value = await file.text(); };
+  document.getElementById("class-timetable-import").onclick = () => {
+    const rows = parseClassAffairsRows(document.getElementById("class-timetable-data").value); const message = document.getElementById("class-timetable-message");
+    if (!rows.length) { message.textContent = "請貼上或選擇課表資料。"; return; }
+    const dataRows = rows[0].some((cell) => /星期[一二三四五]/.test(cell)) ? rows.slice(1) : rows;
+    const inputs = document.getElementById("class-timetable-editor"); let imported = 0;
+    TIMETABLE_PERIODS.forEach((period, index) => { let row = [...(dataRows[index] || [])]; if (/^(第\s*)?\d+\s*(節)?$/.test(row[0] || "")) row.shift(); TIMETABLE_DAYS.forEach((day, dayIndex) => { const field = inputs.querySelector(`[data-timetable-period="${period}"][data-timetable-day="${day.key}"]`); if (field && row[dayIndex] != null) { field.value = row[dayIndex].trim(); imported += 1; } }); });
+    message.textContent = imported ? "已讀入課表，確認後請按「儲存班級課表」。" : "找不到可讀入的課程資料。";
+  };
+  document.getElementById("class-timetable-save").onclick = async () => {
+    const message = document.getElementById("class-timetable-message"); const root = document.getElementById("class-timetable-editor");
+    const periods = Object.fromEntries(TIMETABLE_PERIODS.map((period) => [period, Object.fromEntries(TIMETABLE_DAYS.map((day) => [day.key, root.querySelector(`[data-timetable-period="${period}"][data-timetable-day="${day.key}"]`).value.trim()]))]));
+    message.textContent = "儲存中…";
+    try { await setDoc(doc(db, "classAffairs", selectedTimetableClassCode), { timetable: { periods }, updatedAt: serverTimestamp() }, { merge: true }); classAffairsTimetable = { periods }; message.textContent = "班級課表已儲存。"; } catch (exception) { message.textContent = `儲存失敗：${exception.message}`; }
+  };
   document.getElementById("class-affairs-dataset-form").onsubmit = async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
