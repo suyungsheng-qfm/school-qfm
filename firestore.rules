@@ -19,6 +19,12 @@ service cloud.firestore {
       match /responses/{userId} { allow read: if isAdmin() || (signedIn() && request.auth.uid == userId); allow create: if signedIn() && request.auth.uid == userId; allow update, delete: if false; }
     }
     match /calendarEvents/{eventId} { allow read: if signedIn(); allow create, update, delete: if isAdmin(); }
+    match /personalCalendarEvents/{eventId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.ownerId == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isAdmin() || (signedIn() && resource.data.ownerId == request.auth.uid && request.resource.data.ownerId == resource.data.ownerId);
+      allow delete: if isAdmin() || (signedIn() && resource.data.ownerId == request.auth.uid);
+    }
     match /lotteries/{lotteryId} { allow read: if signedIn(); allow create, update, delete: if isAdmin(); }
     match /classAffairs/{classCode} { allow read: if signedIn(); allow create, update, delete: if isAdmin(); }
     match /classAffairsConfig/{configId} { allow read: if signedIn(); allow create, update, delete: if isAdmin(); }

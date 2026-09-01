@@ -111,7 +111,7 @@ function renderAdminCalendar() {
       if (key === todayKey) cell.classList.add("is-today");
       const events = adminCalendarEvents.filter((event) => event.date === key);
       if (new Date(year, month, day).getDay() === 0 || new Date(year, month, day).getDay() === 6 || events.some(isHolidayEvent)) cell.classList.add("is-holiday");
-      cell.innerHTML = `<time>${day}</time>${events.slice(0, 3).map((event) => `<span class="admin-calendar-event${eventColorClass(event)}${isHolidayEvent(event) ? " is-holiday-event" : ""}" title="${escapeHtml(event.title)}">${escapeHtml(event.title)}</span>`).join("")}${events.length > 3 ? `<span class="more-events">另有 ${events.length - 3} 項</span>` : ""}`;
+      cell.innerHTML = `<time>${day}</time>${events.slice(0, 3).map((event) => `<span class="admin-calendar-event${eventColorClass(event)}${event.collectionName === "personalCalendarEvents" ? " is-personal-event" : ""}${isHolidayEvent(event) ? " is-holiday-event" : ""}" title="${escapeHtml(event.title)}">${escapeHtml(event.title)}</span>`).join("")}${events.length > 3 ? `<span class="more-events">另有 ${events.length - 3} 項</span>` : ""}`;
       cell.querySelectorAll(".admin-calendar-event").forEach((node, index) => {
         node.tabIndex = 0;
         node.setAttribute("role", "button");
@@ -126,10 +126,11 @@ function renderAdminCalendar() {
 }
 
 function openAdminEventEditor(event) {
+  const isPersonal = event.collectionName === "personalCalendarEvents";
   const dialog = document.createElement("dialog");
   dialog.className = "event-dialog admin-event-editor";
   dialog.style.cssText = "width:min(92vw,480px);padding:0;border:0;border-radius:16px;box-shadow:0 16px 42px #18324740;color:#163348";
-  dialog.innerHTML = `<form method="dialog" style="position:relative;display:grid;gap:.85rem;padding:1.35rem"><button class="dialog-close" type="button" aria-label="關閉" style="position:absolute;top:.65rem;right:.65rem;width:34px;min-height:34px;padding:0;border-radius:50%;background:#edf5f8;color:#185a87;font-size:1.45rem">×</button><p class="eyebrow">編輯年級行事曆</p><h2>修改事件</h2><label>標題<input name="title" maxlength="80" required value="${escapeHtml(event.title)}" /></label><label>日期<input name="date" type="date" required value="${escapeHtml(event.date)}" /></label><label>時間（選填）<input name="startTime" type="time" value="${escapeHtml(event.startTime || "")}" /></label><label>說明（選填）<textarea name="description" rows="4" maxlength="300">${escapeHtml(event.description || "")}</textarea></label><label>底色<select name="color">${colorOptions(event.color)}</select></label><button type="submit">儲存修改</button></form>`;
+  dialog.innerHTML = `<form method="dialog" style="position:relative;display:grid;gap:.85rem;padding:1.35rem"><button class="dialog-close" type="button" aria-label="關閉" style="position:absolute;top:.65rem;right:.65rem;width:34px;min-height:34px;padding:0;border-radius:50%;background:#edf5f8;color:#185a87;font-size:1.45rem">×</button><p class="eyebrow">${isPersonal ? `個人行程 · ${escapeHtml(event.teacherCode || "未標記")}` : "編輯年級行事曆"}</p><h2>修改事件</h2><label>標題<input name="title" maxlength="80" required value="${escapeHtml(event.title)}" /></label><label>日期<input name="date" type="date" required value="${escapeHtml(event.date)}" /></label><label>時間（選填）<input name="startTime" type="time" value="${escapeHtml(event.startTime || "")}" /></label><label>說明（選填）<textarea name="description" rows="4" maxlength="300">${escapeHtml(event.description || "")}</textarea></label><label>底色<select name="color">${colorOptions(event.color)}</select></label><button type="submit">儲存修改</button></form>`;
   document.body.append(dialog);
   dialog.querySelector(".dialog-close").onclick = () => dialog.close();
   dialog.onclose = () => dialog.remove();
@@ -138,7 +139,7 @@ function openAdminEventEditor(event) {
     submit.preventDefault();
     const data = new FormData(submit.currentTarget);
     try {
-      await updateDoc(doc(db, "calendarEvents", event.id), { title: data.get("title").trim(), date: data.get("date"), startTime: data.get("startTime"), description: data.get("description").trim(), color: data.get("color"), updatedAt: serverTimestamp() });
+      await updateDoc(doc(db, event.collectionName || "calendarEvents", event.id), { title: data.get("title").trim(), date: data.get("date"), startTime: data.get("startTime"), description: data.get("description").trim(), color: data.get("color"), updatedAt: serverTimestamp() });
       dialog.close();
       renderCalendarAdminList();
     } catch (exception) {
@@ -311,9 +312,8 @@ async function loadClassAffairsTimetable(code) {
 
 async function renderCalendarAdminList() {
   const root = document.getElementById("calendar-admin-list");
-  const snapshot = await getDocs(collection(db, "calendarEvents"));
-  const events = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).sort((a, b) => `${a.date}${a.startTime || ""}`.localeCompare(`${b.date}${b.startTime || ""}`));
-  adminCalendarEvents = events;
+  const [sharedSnapshot, personalSnapshot] = await Promise.all([getDocs(collection(db, "calendarEvents")), getDocs(collection(db, "personalCalendarEvents"))]);
+  adminCalendarEvents = [...sharedSnapshot.docs.map((item) => ({ id: item.id, collectionName: "calendarEvents", ...item.data() })), ...personalSnapshot.docs.map((item) => ({ id: item.id, collectionName: "personalCalendarEvents", ...item.data() }))].sort((a, b) => `${a.date}${a.startTime || ""}`.localeCompare(`${b.date}${b.startTime || ""}`));
   renderAdminCalendar();
   renderCalendarAdminItems();
 }
@@ -322,11 +322,11 @@ function renderCalendarAdminItems() {
   const root = document.getElementById("calendar-admin-list");
   const monthKey = `${adminCurrentMonth.getFullYear()}-${String(adminCurrentMonth.getMonth() + 1).padStart(2, "0")}`;
   const monthEvents = adminCalendarEvents.filter((event) => event.date?.startsWith(monthKey));
-  root.innerHTML = monthEvents.length ? `<h3>${monthKey.replace("-", " 年 ")} 月已發布事件</h3><ul>${monthEvents.map((event) => `<li><span><strong>${escapeHtml(event.date)}</strong> ${escapeHtml(event.title)}</span><button data-delete-event="${event.id}" class="secondary">刪除</button></li>`).join("")}</ul>` : `<p class="field-note">${monthKey.replace("-", " 年 ")} 月尚未建立行事曆事件。</p>`;
+  root.innerHTML = monthEvents.length ? `<h3>${monthKey.replace("-", " 年 ")} 月行程</h3><ul>${monthEvents.map((event) => `<li><span><strong>${escapeHtml(event.date)}</strong> ${event.collectionName === "personalCalendarEvents" ? `<small class="personal-event-owner">個人行程・${escapeHtml(event.teacherCode || "未標記")}</small>` : ""}${escapeHtml(event.title)}</span><button data-delete-event="${event.id}" data-event-collection="${event.collectionName || "calendarEvents"}" class="secondary">刪除</button></li>`).join("")}</ul>` : `<p class="field-note">${monthKey.replace("-", " 年 ")} 月尚未建立行程。</p>`;
   root.querySelectorAll("[data-delete-event]").forEach((button) => {
     button.onclick = async () => {
       if (confirm("確定刪除此行事曆事件？")) {
-        await deleteDoc(doc(db, "calendarEvents", button.dataset.deleteEvent));
+        await deleteDoc(doc(db, button.dataset.eventCollection || "calendarEvents", button.dataset.deleteEvent));
         renderCalendarAdminList();
       }
     };

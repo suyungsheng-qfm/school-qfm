@@ -1,7 +1,7 @@
 import { auth, configured, db } from "./firebase.js";
 import { onAuthStateChanged, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { collection, doc, increment, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js?v=86").then((registration) => registration.update()));
+import { addDoc, collection, deleteDoc, doc, increment, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js?v=87").then((registration) => registration.update()));
 
 const list = (id) => document.getElementById(id);
 const empty = () => document.getElementById("empty-template").content.cloneNode(true);
@@ -11,6 +11,8 @@ const isHolidayEvent = (event) => /放假|補假|國定假日|春節|元旦|和�
 const eventColorClass = (event) => ` event-color-${["blue", "teal", "green", "purple", "amber", "slate"].includes(event.color) ? event.color : "blue"}`;
 let currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let calendarEvents = [];
+let personalCalendarEvents = [];
+let currentUser = null;
 let classAffairsTemplates = [];
 let classAffairsData = null;
 let selectedClassAffairsDatasetId = "";
@@ -20,15 +22,56 @@ const TIMETABLE_DAYS = [{ key: "mon", label: "星期一" }, { key: "tue", label:
 const TIMETABLE_PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
 const COURSE_ABBREVIATIONS = { "健康教育": "健康", "資訊科技": "資科", "綜-輔導活動": "輔導", "生活魔數2": "魔數", "社-地理": "地理", "社-歷史": "歷史", "社-公民": "公民", "本土語": "本土", "綜-童軍": "童軍", "綜-家政": "家政", "在地文化": "在地", "藝-表演": "表演", "藝-音樂": "音樂", "藝-美術": "美術", "英閱饗宴2": "英閱", "生活科技": "生科", "社團活動": "社團" };
 
+const PERSONAL_EVENT_COLORS = ["blue", "teal", "green", "purple", "amber", "slate"];
+const personalColorOptions = (selected = "purple") => PERSONAL_EVENT_COLORS.map((color) => `<option value="${color}" ${color === selected ? "selected" : ""}>${({ blue: "預設藍", teal: "青綠", green: "綠色", purple: "紫色", amber: "琥珀", slate: "灰藍" })[color]}</option>`).join("");
+const personalDateText = (event) => `${event.date}${event.startTime ? ` ${event.startTime}` : ""}`;
+
 function showEventDetails(event) {
   const dialog = document.createElement("dialog");
   dialog.className = "event-dialog";
   dialog.style.cssText = "width:min(92vw,430px);padding:0;border:0;border-radius:16px;box-shadow:0 16px 42px #18324740;color:#163348";
-  dialog.innerHTML = `<article style="position:relative;padding:1.35rem"><button class="dialog-close" type="button" aria-label="關閉" style="position:absolute;top:.65rem;right:.65rem;width:34px;min-height:34px;padding:0;border-radius:50%;background:#edf5f8;color:#185a87;font-size:1.45rem">×</button><p class="eyebrow">年級行事曆</p><h2>${escapeHtml(event.title)}</h2><p style="color:#185a87;font-weight:800">${escapeHtml(event.date)}${event.startTime ? ` ${escapeHtml(event.startTime)}` : ""}</p><p>${escapeHtml(event.description || "此行程沒有補充說明。").replace(/\n/g, "<br>")}</p></article>`;
+  dialog.innerHTML = `<article style="position:relative;padding:1.35rem"><button class="dialog-close" type="button" aria-label="關閉" style="position:absolute;top:.65rem;right:.65rem;width:34px;min-height:34px;padding:0;border-radius:50%;background:#edf5f8;color:#185a87;font-size:1.45rem">×</button><p class="eyebrow">${event.isPersonal ? "PRIVATE SCHEDULE" : "年級行事曆"}</p><h2>${escapeHtml(event.title)}</h2><p style="color:#185a87;font-weight:800">${escapeHtml(personalDateText(event))}</p><p>${escapeHtml(event.description || "此行程沒有補充說明。").replace(/\n/g, "<br>")}</p>${event.isPersonal ? '<button class="edit-personal-event" type="button">修改我的行程</button>' : ""}</article>`;
+  document.body.append(dialog);
+  dialog.querySelector(".dialog-close").onclick = () => dialog.close();
+  dialog.querySelector(".edit-personal-event")?.addEventListener("click", () => { dialog.close(); openPersonalEventEditor(event); });
+  dialog.onclose = () => dialog.remove();
+  dialog.onclick = (click) => { if (click.target === dialog) dialog.close(); };
+  if (dialog.showModal) dialog.showModal(); else dialog.setAttribute("open", "");
+}
+
+function renderPersonalCalendar() {
+  const root = list("personal-calendar-list");
+  if (!currentUser) { root.innerHTML = "<p class=empty>載入我的行程中…</p>"; return; }
+  const items = [...personalCalendarEvents].sort((a, b) => personalDateText(a).localeCompare(personalDateText(b)));
+  root.innerHTML = items.length ? items.map((event) => `<article class="personal-calendar-item"><div><time>${escapeHtml(personalDateText(event))}</time><strong>${escapeHtml(event.title)}</strong>${event.description ? `<p>${escapeHtml(event.description)}</p>` : ""}</div><button type="button" data-edit-personal-event="${escapeHtml(event.id)}">修改</button></article>`).join("") : "<p class=empty>尚未新增個人行程。</p>";
+  root.querySelectorAll("[data-edit-personal-event]").forEach((button) => { button.onclick = () => openPersonalEventEditor(personalCalendarEvents.find((event) => event.id === button.dataset.editPersonalEvent)); });
+}
+
+function openPersonalEventEditor(event = null) {
+  if (!currentUser) return;
+  const editing = Boolean(event?.id);
+  const dialog = document.createElement("dialog");
+  dialog.className = "event-dialog";
+  dialog.style.cssText = "width:min(92vw,430px);padding:0;border:0;border-radius:16px;box-shadow:0 16px 42px #18324740;color:#163348";
+  dialog.innerHTML = `<form method="dialog" style="position:relative;display:grid;gap:.85rem;padding:1.35rem"><button class="dialog-close" type="button" aria-label="關閉" style="position:absolute;top:.65rem;right:.65rem;width:34px;min-height:34px;padding:0;border-radius:50%;background:#edf5f8;color:#185a87;font-size:1.45rem">×</button><p class="eyebrow">PRIVATE SCHEDULE</p><h2>${editing ? "修改我的行程" : "新增我的行程"}</h2><p class="field-note">此行程只有您與級導師看得到。</p><label>標題<input name="title" maxlength="80" required value="${escapeHtml(event?.title || "")}" /></label><label>日期<input name="date" type="date" required value="${escapeHtml(event?.date || "")}" /></label><label>時間（選填）<input name="startTime" type="time" value="${escapeHtml(event?.startTime || "")}" /></label><label>說明（選填）<textarea name="description" rows="3" maxlength="300">${escapeHtml(event?.description || "")}</textarea></label><label>底色<select name="color">${personalColorOptions(event?.color || "purple")}</select></label><button type="submit">${editing ? "儲存修改" : "新增行程"}</button>${editing ? '<button type="button" class="secondary delete-personal-event">刪除行程</button>' : ""}</form>`;
   document.body.append(dialog);
   dialog.querySelector(".dialog-close").onclick = () => dialog.close();
   dialog.onclose = () => dialog.remove();
   dialog.onclick = (click) => { if (click.target === dialog) dialog.close(); };
+  dialog.querySelector("form").onsubmit = async (submit) => {
+    submit.preventDefault();
+    const data = new FormData(submit.currentTarget);
+    const values = { title: data.get("title").trim(), date: data.get("date"), startTime: data.get("startTime"), description: data.get("description").trim(), color: data.get("color"), updatedAt: serverTimestamp() };
+    try {
+      if (editing) await updateDoc(doc(db, "personalCalendarEvents", event.id), values);
+      else await addDoc(collection(db, "personalCalendarEvents"), { ...values, ownerId: currentUser.uid, teacherCode: teacherCode || "", createdAt: serverTimestamp() });
+      dialog.close();
+    } catch (exception) { alert(`儲存失敗：${exception.message}`); }
+  };
+  dialog.querySelector(".delete-personal-event")?.addEventListener("click", async () => {
+    if (!confirm("確定刪除這個個人行程？")) return;
+    try { await deleteDoc(doc(db, "personalCalendarEvents", event.id)); dialog.close(); } catch (exception) { alert(`刪除失敗：${exception.message}`); }
+  });
   if (dialog.showModal) dialog.showModal(); else dialog.setAttribute("open", "");
 }
 
@@ -43,15 +86,16 @@ function renderCalendar() {
     if (date < 1 || date > days) { cell.classList.add("is-empty-day"); grid.append(cell); continue; }
     const key = `${year}-${String(month + 1).padStart(2,"0")}-${String(date).padStart(2,"0")}`; const today = new Date();
     if (today.getFullYear() === year && today.getMonth() === month && today.getDate() === date) cell.classList.add("is-today");
-    const dayEvents = calendarEvents.filter((event) => event.date === key);
+    const dayEvents = [...calendarEvents, ...personalCalendarEvents.map((event) => ({ ...event, isPersonal: true }))].filter((event) => event.date === key);
     if (new Date(year, month, date).getDay() === 0 || new Date(year, month, date).getDay() === 6 || dayEvents.some(isHolidayEvent)) cell.classList.add("is-holiday");
     const events = dayEvents.slice(0, 3);
-    cell.innerHTML = `<time datetime="${key}">${date}</time>${events.map((event) => `<button class="calendar-event${eventColorClass(event)}${isHolidayEvent(event) ? " is-holiday-event" : ""}" title="${escapeHtml(event.description || event.title)}">${escapeHtml(event.title)}</button>`).join("")}${dayEvents.length > 3 ? '<span class="more-events">更多…</span>' : ""}`;
+    cell.innerHTML = `<time datetime="${key}">${date}</time>${events.map((event) => `<button class="calendar-event${eventColorClass(event)}${event.isPersonal ? " is-personal-event" : ""}${isHolidayEvent(event) ? " is-holiday-event" : ""}" title="${escapeHtml(event.description || event.title)}">${escapeHtml(event.title)}</button>`).join("")}${dayEvents.length > 3 ? '<span class="more-events">更多…</span>' : ""}`;
     cell.querySelectorAll(".calendar-event").forEach((button, index) => { button.onclick = () => showEventDetails(events[index]); });
     grid.append(cell);
   }
   const upcoming = calendarEvents.filter((event) => event.date >= new Date().toISOString().slice(0,10)).sort((a,b) => `${a.date}${a.startTime||""}`.localeCompare(`${b.date}${b.startTime||""}`)).slice(0,5);
   list("upcoming-events").innerHTML = upcoming.length ? `<ul>${upcoming.map((event) => `<li><time>${event.date}${event.startTime ? ` ${event.startTime}` : ""}</time><span>${escapeHtml(event.title)}</span></li>`).join("")}</ul>` : "<p class=empty>近期尚無年級事務。</p>";
+  renderPersonalCalendar();
 }
 function renderAnnouncements(items, uid) { const root = list("announcements-list"); root.innerHTML = ""; if (!items.length) return root.append(empty()); items.forEach(({id,...item}) => { const card=document.createElement("article"); card.className="card"; card.innerHTML=`<p class="card-date">${dateText(item.createdAt)}</p><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.body).replace(/\n/g,"<br>")}</p>${item.requiresSignature?`<button>我已閱讀並簽收</button><small class="action-state is-pending">尚未簽收</small>`:"<small>本公告無須簽收</small>"}`; root.append(card); if(item.requiresSignature){const signature=doc(db,"announcements",id,"signatures",uid); onSnapshot(signature,(snap)=>{const button=card.querySelector("button"),note=card.querySelector("small"); if(snap.exists()){button.disabled=true;button.textContent="已完成簽收";note.className="action-state is-done";note.textContent="已簽收";}});card.querySelector("button").onclick=()=>setDoc(signature,{teacherCode,signedAt:serverTimestamp()});}});}
 function renderPolls(items, uid) { const root=list("polls-list");root.innerHTML="";if(!items.length)return root.append(empty());items.forEach(({id,...item})=>{const card=document.createElement("article");card.className="card";card.innerHTML=`<p class="card-date">${dateText(item.createdAt)}</p><h3>${escapeHtml(item.question)}</h3><div class="options">${(item.options||[]).map((option,index)=>`<button data-option="${index}">${escapeHtml(option)} <span>${item.counts?.[index]||0} 票</span></button>`).join("")}</div><small class="action-state is-pending">尚未投票（每人限一次）</small>`;root.append(card);const voteRef=doc(db,"polls",id,"votes",uid);onSnapshot(voteRef,(snap)=>{if(snap.exists()){card.querySelectorAll("button").forEach((b)=>b.disabled=true);const note=card.querySelector("small");note.className="action-state is-done";note.textContent="已投票";}});card.querySelectorAll("[data-option]").forEach((button)=>button.onclick=async()=>{const option=Number(button.dataset.option);card.querySelectorAll("button").forEach((b)=>b.disabled=true);try{await setDoc(voteRef,{teacherCode,option,votedAt:serverTimestamp()});await updateDoc(doc(db,"polls",id),{[`counts.${option}`]:increment(1)});}catch(error){alert("投票未完成，請重新整理後再試。");}});});}
@@ -65,4 +109,5 @@ function choosePage(page){document.querySelectorAll(".feature-page").forEach((se
 document.querySelectorAll(".mobile-nav a").forEach((link)=>link.onclick=(event)=>{event.preventDefault();choosePage(link.dataset.page);});
 list("calendar-prev").onclick=()=>{currentMonth=new Date(currentMonth.getFullYear(),currentMonth.getMonth()-1,1);renderCalendar();}; list("calendar-next").onclick=()=>{currentMonth=new Date(currentMonth.getFullYear(),currentMonth.getMonth()+1,1);renderCalendar();};list("calendar-today").onclick=()=>{currentMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1);renderCalendar();}; list("refresh-announcements").onclick=()=>location.reload();
 const teacherCode = localStorage.getItem("teacherCode"); list("user-session").textContent = teacherCode ? `已登入（${teacherCode}）` : "已登入"; list("admin-entry").hidden = teacherCode !== "807"; list("sign-out-user").onclick = async () => { localStorage.removeItem("classHubAccess"); localStorage.removeItem("teacherCode"); try { await signOut(auth); } finally { location.replace("login.html"); } };
-if(!configured)showSetupMessage();else onAuthStateChanged(auth,(user)=>{if(!user)signInAnonymously(auth);else{onSnapshot(collection(db,"calendarEvents"),(snap)=>{calendarEvents=snap.docs.map((item)=>({id:item.id,...item.data()}));renderCalendar();});onSnapshot(query(collection(db,"announcements"),orderBy("createdAt","desc")),(snap)=>renderAnnouncements(snap.docs.map((item)=>({id:item.id,...item.data()})),user.uid));onSnapshot(query(collection(db,"polls"),orderBy("createdAt","desc")),(snap)=>renderPolls(snap.docs.map((item)=>({id:item.id,...item.data()})),user.uid));onSnapshot(query(collection(db,"forms"),orderBy("createdAt","desc")),(snap)=>renderForms(snap.docs.map((item)=>({id:item.id,...item.data()})),user.uid));if(teacherCode){onSnapshot(doc(db,"classAffairsConfig","settings"),(snap)=>{classAffairsTemplates=snap.exists()&&Array.isArray(snap.data().datasets)?snap.data().datasets:[];renderClassAffairs(teacherCode);});onSnapshot(doc(db,"classAffairs",teacherCode),(snap)=>{classAffairsData=snap.exists()?snap.data():null;renderClassAffairs(teacherCode);});}else list("class-affairs-list").innerHTML="<p class=empty>找不到班級代碼，請重新登入。</p>";}});
+list("add-personal-event").onclick = () => openPersonalEventEditor();
+if(!configured)showSetupMessage();else onAuthStateChanged(auth,(user)=>{if(!user)signInAnonymously(auth);else{currentUser=user;onSnapshot(collection(db,"calendarEvents"),(snap)=>{calendarEvents=snap.docs.map((item)=>({id:item.id,...item.data()}));renderCalendar();});onSnapshot(query(collection(db,"personalCalendarEvents"),where("ownerId","==",user.uid)),(snap)=>{personalCalendarEvents=snap.docs.map((item)=>({id:item.id,...item.data()}));renderCalendar();});onSnapshot(query(collection(db,"announcements"),orderBy("createdAt","desc")),(snap)=>renderAnnouncements(snap.docs.map((item)=>({id:item.id,...item.data()})),user.uid));onSnapshot(query(collection(db,"polls"),orderBy("createdAt","desc")),(snap)=>renderPolls(snap.docs.map((item)=>({id:item.id,...item.data()})),user.uid));onSnapshot(query(collection(db,"forms"),orderBy("createdAt","desc")),(snap)=>renderForms(snap.docs.map((item)=>({id:item.id,...item.data()})),user.uid));if(teacherCode){onSnapshot(doc(db,"classAffairsConfig","settings"),(snap)=>{classAffairsTemplates=snap.exists()&&Array.isArray(snap.data().datasets)?snap.data().datasets:[];renderClassAffairs(teacherCode);});onSnapshot(doc(db,"classAffairs",teacherCode),(snap)=>{classAffairsData=snap.exists()?snap.data():null;renderClassAffairs(teacherCode);});}else list("class-affairs-list").innerHTML="<p class=empty>找不到班級代碼，請重新登入。</p>";}});
