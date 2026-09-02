@@ -234,7 +234,8 @@ function classAffairId() { return globalThis.crypto?.randomUUID?.() || `${Date.n
 function activeClassAffairsDataset() { return classAffairsTemplates.find((dataset) => dataset.id === selectedClassAffairsDatasetId); }
 function legacyClassAffairsRecords(students = []) { return students.map((student, index) => ({ id: student.id || `legacy-${index}`, values: { "座號": String(student.seatNumber || ""), "姓名": student.name || "", "OpenID 帳號": student.openId || "" } })); }
 function normalizedClassAffairsGroups(data = {}) { return data.groups || (data.students ? { roster: { records: legacyClassAffairsRecords(data.students) } } : {}); }
-function datasetRecords(datasetId) { return classAffairsGroups[datasetId]?.records || []; }
+function sortClassAffairsRecords(records = []) { return [...records].sort((left, right) => { const leftSeat = String(left.values?.["座號"] || "").trim(); const rightSeat = String(right.values?.["座號"] || "").trim(); if (!leftSeat && !rightSeat) return 0; if (!leftSeat) return 1; if (!rightSeat) return -1; return leftSeat.localeCompare(rightSeat, "zh-Hant", { numeric: true }); }); }
+function datasetRecords(datasetId) { return sortClassAffairsRecords(classAffairsGroups[datasetId]?.records || []); }
 const normalizeDatasetName = (value) => String(value || "").toLowerCase().replace(/[\s_-]/g, "");
 async function renderClassAffairsStatistics() {
   let root = document.getElementById("class-affairs-statistics");
