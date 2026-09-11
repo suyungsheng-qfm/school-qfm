@@ -1,7 +1,7 @@
 import { auth, configured, db } from "./firebase.js";
 import { onAuthStateChanged, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { addDoc, collection, deleteDoc, doc, increment, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js?v=88").then((registration) => registration.update()));
+if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js?v=90").then((registration) => registration.update()));
 
 const list = (id) => document.getElementById(id);
 const empty = () => document.getElementById("empty-template").content.cloneNode(true);
@@ -109,7 +109,7 @@ function renderClassTimetable(code) { const root = list("class-affairs-list"); c
 function renderPersonalTimetable(code, dataset) {
   const root = list("class-affairs-list");
   const records = [...(classAffairsGroups(classAffairsData || {})[dataset.id]?.records || [])].sort((left, right) => Number(left.values?.["節次"] || 0) - Number(right.values?.["節次"] || 0));
-  root.innerHTML = `<article class="card class-affairs-card class-timetable-card"><button class="secondary class-affairs-back" type="button">‹ 返回班務資料</button><p class="card-date">${escapeHtml(code)} 班導師</p><h3>個人課表</h3><p class="class-affairs-count">第一學期・課程與授課班級</p>${records.length ? `<div class="class-timetable-wrap"><table class="class-timetable-table personal-timetable-table"><thead><tr><th>節次</th>${TIMETABLE_DAYS.map((day) => `<th>${day.label}</th>`).join("")}</tr></thead><tbody>${records.map((record) => `<tr><th>${escapeHtml(record.values?.["節次"] || "－")}</th>${TIMETABLE_DAYS.map((day) => `<td>${escapeHtml(record.values?.[day.label] || "－")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : "<p>目前尚未建立資料。</p>"}</article>`;
+  root.innerHTML = `<article class="card class-affairs-card class-timetable-card"><button class="secondary class-affairs-back" type="button">‹ 返回班務資料</button><p class="card-date">${escapeHtml(code)} 班導師</p><h3>個人課表</h3><p class="class-affairs-count">第一學期・課程與授課班級</p>${records.length ? `<div class="class-timetable-wrap"><table class="class-timetable-table personal-timetable-table"><thead><tr><th>節次</th>${TIMETABLE_DAYS.map((day) => `<th>${day.label}</th>`).join("")}</tr></thead><tbody>${records.map((record) => `<tr><th>${escapeHtml(record.values?.["節次"] || "")}</th>${TIMETABLE_DAYS.map((day) => `<td>${escapeHtml(record.values?.[day.label] || "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : "<p>目前尚未建立資料。</p>"}</article>`;
   root.querySelector(".class-affairs-back").onclick = () => { selectedClassAffairsDatasetId = ""; renderClassAffairs(code); };
 }
 function renderClassAffairs(code) {
