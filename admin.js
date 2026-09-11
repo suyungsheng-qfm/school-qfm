@@ -775,7 +775,6 @@ if (!configured) {
   };
   document.getElementById("class-affairs-batch-file").onchange = async (event) => { const file = event.target.files?.[0]; if (file) document.getElementById("class-affairs-batch-data").value = await file.text(); };
   const batchImportButton = document.getElementById("class-affairs-batch-import");
-  batchImportButton.insertAdjacentHTML("beforebegin", '<label class="field-note"><input id="class-affairs-batch-replace" type="checkbox" /> 覆蓋目前班級的這組資料（不保留舊資料）</label>');
   batchImportButton.onclick = async () => {
     const dataset = activeClassAffairsDataset(); const message = document.getElementById("class-affairs-message"); const rows = parseClassAffairsRows(document.getElementById("class-affairs-batch-data").value);
     if (!dataset || !rows.length) { message.textContent = "請貼上或選擇至少一筆資料。"; return; }
@@ -784,7 +783,7 @@ if (!configured) {
     if (hasHeader) rows.shift(); else { const looksLikeHeader = dataset.fields.some((field) => header.includes(field)); if (looksLikeHeader) { message.textContent = `標題列需包含：${dataset.fields.join("、")}`; return; } positions = dataset.fields.map((_, index) => index); }
     const records = rows.map((row) => ({ id: classAffairId(), values: Object.fromEntries(dataset.fields.map((field, index) => [field, row[positions[index]] || ""])) })).filter((record) => Object.values(record.values).some(Boolean));
     if (!records.length) { message.textContent = "找不到可匯入的資料。"; return; }
-    const code = document.getElementById("class-affairs-code").value; const replaceExisting = document.getElementById("class-affairs-batch-replace").checked; const groups = { ...classAffairsGroups, [dataset.id]: { records: replaceExisting ? records : [...datasetRecords(dataset.id), ...records] } };
+    const code = document.getElementById("class-affairs-code").value; const replaceExisting = dataset.id === "personal_timetable" || document.getElementById("class-affairs-batch-replace")?.checked; const groups = { ...classAffairsGroups, [dataset.id]: { records: replaceExisting ? records : [...datasetRecords(dataset.id), ...records] } };
     message.textContent = `正在匯入 ${records.length} 筆資料…`;
     try { await setDoc(doc(db, "classAffairs", code), { groups, updatedAt: serverTimestamp() }, { merge: true }); classAffairsGroups = groups; document.getElementById("class-affairs-batch-data").value = ""; document.getElementById("class-affairs-batch-file").value = ""; message.textContent = replaceExisting ? `已覆蓋為 ${records.length} 筆資料。` : `已匯入 ${records.length} 筆資料。`; renderClassAffairsRecordList(); renderClassAffairsStatistics(); } catch (exception) { message.textContent = `匯入失敗：${exception.message}`; }
   };
